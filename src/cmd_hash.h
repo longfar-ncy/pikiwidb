@@ -33,4 +33,26 @@ class HGetCmd : public BaseCmd {
   void DoCmd(PClient *client) override;
 };
 
+class HMSetCmd : public BaseCmd {
+ public:
+  HMSetCmd(const std::string &name, int16_t arity);
+
+ protected:
+  bool DoInitial(PClient *client) override;
+
+ private:
+  void DoCmd(PClient *client) override;
+};
+
+class HMGetCmd : public BaseCmd {
+ public:
+  HMGetCmd(const std::string &name, int16_t arity);
+
+ protected:
+  bool DoInitial(PClient *client) override;
+
+ private:
+  void DoCmd(PClient *client) override;
+};
+
 }  // namespace pikiwidb
