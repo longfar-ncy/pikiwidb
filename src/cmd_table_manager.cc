@@ -9,6 +9,7 @@
 #include <memory>
 #include "cmd_admin.h"
 #include "cmd_kv.h"
+#include "cmd_hash.h"
 
 namespace pikiwidb {
 
@@ -32,6 +33,12 @@ void CmdTableManager::InitCmdTable() {
   cmds_->insert(std::make_pair(kCmdNameGet, std::move(getPtr)));
   std::unique_ptr<BaseCmd> setPtr = std::make_unique<SetCmd>(kCmdNameSet, -3);
   cmds_->insert(std::make_pair(kCmdNameSet, std::move(setPtr)));
+
+  // hash
+  std::unique_ptr<BaseCmd> hsetPtr = std::make_unique<HSetCmd>(kCmdNameHSet, 4);
+  cmds_->insert(std::make_pair(kCmdNameHSet, std::move(hsetPtr)));
+  std::unique_ptr<BaseCmd> hgetPtr = std::make_unique<HGetCmd>(kCmdNameHGet, 3);
+  cmds_->insert(std::make_pair(kCmdNameHGet, std::move(hgetPtr)));
 }
 
 std::pair<BaseCmd*, CmdRes::CmdRet> CmdTableManager::GetCommand(const std::string& cmdName, PClient* client) {

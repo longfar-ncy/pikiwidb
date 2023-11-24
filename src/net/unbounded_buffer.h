@@ -5,10 +5,10 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-
 #pragma once
 
 #include <cstring>
+#include <string>
 #include <vector>
 
 namespace pikiwidb {
@@ -28,6 +28,7 @@ class UnboundedBuffer {
 
   char* ReadAddr() { return &buffer_[readPos_]; }
   char* WriteAddr() { return &buffer_[writePos_]; }
+  std::string ReadStringWithoutCRLF() const { return std::string(&buffer_[readPos_], ReadableSize()-2); }
 
   bool IsEmpty() const { return ReadableSize() == 0; }
   std::size_t ReadableSize() const { return writePos_ - readPos_; }

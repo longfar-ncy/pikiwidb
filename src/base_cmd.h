@@ -36,6 +36,10 @@ const std::string kCmdNameDiscard = "discard";
 const std::string kCmdNameConfig = "config";
 const std::string kCmdNameAuth = "auth";
 
+// hash
+const std::string kCmdNameHGet = "hget";
+const std::string kCmdNameHSet = "hset";
+
 enum CmdFlags {
   CmdFlagsWrite = (1 << 0),             // May modify the dataset
   CmdFlagsReadonly = (1 << 1),          // Doesn't modify the dataset
