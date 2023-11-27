@@ -14,3 +14,16 @@ jobs:
       - name: Build
         run: |
           sh build.sh
+
+  build_on_ubuntu:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: sh build.sh
+      
+      - name: 
+        run: |
+          cd build && make check-format
