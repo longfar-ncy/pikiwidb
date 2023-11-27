@@ -22,8 +22,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build
-        run: sh build.sh
+        run: |
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
       
       - name: 
+        working-directory: ${{ github.workspace }}/build
         run: |
-          cd build && make check-format
+          make check-format
