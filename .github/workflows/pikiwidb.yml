@@ -17,7 +17,9 @@ jobs:
       
       - name: Check Format
         working-directory: ${{ github.workspace }}/build
-        run: make check-format
+        run: |
+          brew install llvm -y
+          make check-format
 
   build_on_ubuntu:
     runs-on: ubuntu-latest
