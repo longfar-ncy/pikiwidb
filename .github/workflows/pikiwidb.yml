@@ -14,6 +14,10 @@ jobs:
       - name: Build
         run: |
           sh build.sh
+      
+      - name: Check Format
+        working-directory: ${{ github.workspace }}/build
+        run: make check-format
 
   build_on_ubuntu:
     runs-on: ubuntu-latest
@@ -28,5 +32,4 @@ jobs:
       
       - name: Check Format
         working-directory: ${{ github.workspace }}/build
-        run: |
-          make check-format
+        run: make check-format
