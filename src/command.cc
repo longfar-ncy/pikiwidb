@@ -282,7 +282,9 @@ PError cmdlist(const std::vector<PString>& params, UnboundedBuffer* reply) {
   PreFormatMultiBulk(PCommandTable::s_handlers.size(), reply);
   for (const auto& kv : PCommandTable::s_handlers) {
     FormatBulk(kv.first, reply);
-  } return PError_ok;
+  } 
+  
+  return PError_ok;
 }
 
 }  // namespace pikiwidb

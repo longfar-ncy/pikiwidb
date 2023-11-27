@@ -1,8 +1,8 @@
 name: Pikiwidb
 
 on:
-  push:
   pull_request:
+    branches: [ "unstable" ]
 
 jobs:
   build_on_macos:
@@ -26,7 +26,7 @@ jobs:
           mkdir build && cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
       
-      - name: 
+      - name: Check Format
         working-directory: ${{ github.workspace }}/build
         run: |
           make check-format
