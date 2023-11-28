@@ -12,6 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Deps
+        run: |
+          brew install llvm
+
       - name: Build
         run: |
           sh build.sh
@@ -19,7 +23,6 @@ jobs:
       - name: Check Format
         working-directory: ${{ github.workspace }}/build
         run: |
-          brew install llvm
           make check-format
 
       - name: GTest
