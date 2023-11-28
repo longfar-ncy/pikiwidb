@@ -30,7 +30,7 @@ void HGetCmd::DoCmd(PClient* client) {
     if (err == PError_notExist) {
       client->AppendString("");
     } else {
-      client->SetRes(CmdRes::kErrOther, "hmset cmd error");
+      client->SetRes(CmdRes::kErrOther, "hget cmd error");
     }
     return;
   }
@@ -82,16 +82,30 @@ bool HMGetCmd::DoInitial(PClient* client) {
 }
 
 void HMGetCmd::DoCmd(PClient* client) {
+  PObject* value;
   UnboundedBuffer reply;
-  std::vector<std::string> params(client->argv_.begin(), client->argv_.end());
-  PError err = hmget(params, &reply);
+
+  PError err = PSTORE.GetValueByType(client->Key(), value, PType_hash);
   if (err != PError_ok) {
+    ReplyError(err, &reply);
     if (err == PError_notExist) {
       client->AppendString("");
     } else {
       client->SetRes(CmdRes::kErrOther, "hmget cmd error");
     }
     return;
+  }
+
+  PreFormatMultiBulk(client->argv_.size() - 2, &reply);
+
+  auto hash = value->CastHash();
+  for (size_t i = 2; i < client->argv_.size(); ++i) {
+    auto it = hash->find(client->argv_[i]);
+    if (it != hash->end()) {
+      FormatBulk(it->second, &reply);
+    } else {
+      FormatNull(&reply);
+    }
   }
   client->AppendStringRaw(reply.ReadAddr());
 }
