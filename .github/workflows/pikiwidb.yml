@@ -16,6 +16,10 @@ jobs:
         run: |
           sh build.sh
 
+      - name: Check Format
+        working-directory: ${{ github.workspace }}/build
+        run: make check-format
+
       - name: GTest
         working-directory: ${{ github.workspace }}/build
         # Execute tests defined by the CMake configuration.
