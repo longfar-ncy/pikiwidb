@@ -119,16 +119,26 @@ bool HGetAllCmd::DoInitial(PClient* client) {
 }
 
 void HGetAllCmd::DoCmd(PClient* client) {
+  PObject* value;
   UnboundedBuffer reply;
-  std::vector<std::string> params(client->argv_.begin(), client->argv_.end());
-  PError err = hgetall(params, &reply);
+
+  PError err = PSTORE.GetValueByType(client->Key(), value, PType_hash);
   if (err != PError_ok) {
+    ReplyError(err, &reply);
     if (err == PError_notExist) {
       client->AppendString("");
     } else {
       client->SetRes(CmdRes::kErrOther, "hgetall cmd error");
     }
     return;
+  }
+
+  auto hash = value->CastHash();
+  PreFormatMultiBulk(2 * hash->size(), &reply);
+
+  for (const auto& kv : *hash) {
+    FormatBulk(kv.first, &reply);
+    FormatBulk(kv.second, &reply);
   }
   client->AppendStringRaw(reply.ReadAddr());
 }
