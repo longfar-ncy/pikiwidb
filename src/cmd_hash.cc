@@ -8,6 +8,7 @@
 #include "cmd_hash.h"
 
 #include "command.h"
+#include "store.h"
 
 namespace pikiwidb {
 
@@ -20,16 +21,27 @@ bool HGetCmd::DoInitial(PClient* client) {
 }
 
 void HGetCmd::DoCmd(PClient* client) {
+  PObject* value;
   UnboundedBuffer reply;
-  std::vector<std::string> params(client->argv_.begin(), client->argv_.end());
-  PError err = hget(params, &reply);
+
+  PError err = PSTORE.GetValueByType(client->Key(), value, PType_hash);
   if (err != PError_ok) {
+    ReplyError(err, &reply);
     if (err == PError_notExist) {
       client->AppendString("");
     } else {
-      client->SetRes(CmdRes::kErrOther, "hget cmd error");
+      client->SetRes(CmdRes::kErrOther, "hmset cmd error");
     }
     return;
+  }
+
+  auto hash = value->CastHash();
+  auto it = hash->find(client->argv_[2]);
+
+  if (it != hash->end()) {
+    FormatBulk(it->second, &reply);
+  } else {
+    FormatNull(&reply);
   }
   client->AppendStringRaw(reply.ReadAddr());
 }
