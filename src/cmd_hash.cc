@@ -12,6 +12,20 @@
 
 namespace pikiwidb {
 
+#define GET_HASH(cmd)                                                   \
+  PObject* value;                                                       \
+  UnboundedBuffer reply;                                                \
+  PError err = PSTORE.GetValueByType(client->Key(), value, PType_hash); \
+  if (err != PError_ok) {                                               \
+    ReplyError(err, &reply);                                            \
+    if (err == PError_notExist) {                                       \
+      client->AppendString("");                                         \
+    } else {                                                            \
+      client->SetRes(CmdRes::kSyntaxErr, #cmd " cmd error");            \
+    }                                                                   \
+    return;                                                             \
+  }
+
 HGetCmd::HGetCmd(const std::string& name, int16_t arity)
     : BaseCmd(name, arity, CmdFlagsReadonly, AclCategoryRead | AclCategoryHash) {}
 
@@ -21,19 +35,7 @@ bool HGetCmd::DoInitial(PClient* client) {
 }
 
 void HGetCmd::DoCmd(PClient* client) {
-  PObject* value;
-  UnboundedBuffer reply;
-
-  PError err = PSTORE.GetValueByType(client->Key(), value, PType_hash);
-  if (err != PError_ok) {
-    ReplyError(err, &reply);
-    if (err == PError_notExist) {
-      client->AppendString("");
-    } else {
-      client->SetRes(CmdRes::kErrOther, "hget cmd error");
-    }
-    return;
-  }
+  GET_HASH(hget);
 
   auto hash = value->CastHash();
   auto it = hash->find(client->argv_[2]);
@@ -82,23 +84,11 @@ bool HMGetCmd::DoInitial(PClient* client) {
 }
 
 void HMGetCmd::DoCmd(PClient* client) {
-  PObject* value;
-  UnboundedBuffer reply;
-
-  PError err = PSTORE.GetValueByType(client->Key(), value, PType_hash);
-  if (err != PError_ok) {
-    ReplyError(err, &reply);
-    if (err == PError_notExist) {
-      client->AppendString("");
-    } else {
-      client->SetRes(CmdRes::kErrOther, "hmget cmd error");
-    }
-    return;
-  }
-
-  PreFormatMultiBulk(client->argv_.size() - 2, &reply);
+  GET_HASH(hmget);
 
   auto hash = value->CastHash();
+  PreFormatMultiBulk(client->argv_.size() - 2, &reply);
+
   for (size_t i = 2; i < client->argv_.size(); ++i) {
     auto it = hash->find(client->argv_[i]);
     if (it != hash->end()) {
@@ -119,19 +109,7 @@ bool HGetAllCmd::DoInitial(PClient* client) {
 }
 
 void HGetAllCmd::DoCmd(PClient* client) {
-  PObject* value;
-  UnboundedBuffer reply;
-
-  PError err = PSTORE.GetValueByType(client->Key(), value, PType_hash);
-  if (err != PError_ok) {
-    ReplyError(err, &reply);
-    if (err == PError_notExist) {
-      client->AppendString("");
-    } else {
-      client->SetRes(CmdRes::kErrOther, "hgetall cmd error");
-    }
-    return;
-  }
+  GET_HASH(hgetall);
 
   auto hash = value->CastHash();
   PreFormatMultiBulk(2 * hash->size(), &reply);
@@ -152,19 +130,7 @@ bool HKeysCmd::DoInitial(PClient* client) {
 }
 
 void HKeysCmd::DoCmd(PClient* client) {
-  PObject* value;
-  UnboundedBuffer reply;
-
-  PError err = PSTORE.GetValueByType(client->Key(), value, PType_hash);
-  if (err != PError_ok) {
-    ReplyError(err, &reply);
-    if (err == PError_notExist) {
-      client->AppendString("");
-    } else {
-      client->SetRes(CmdRes::kErrOther, "hkeys cmd error");
-    }
-    return;
-  }
+  GET_HASH(hkeys);
 
   auto hash = value->CastHash();
   PreFormatMultiBulk(hash->size(), &reply);
