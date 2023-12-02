@@ -7,7 +7,6 @@
 
 #include "cmd_hash.h"
 
-#include "command.h"
 #include "store.h"
 
 namespace pikiwidb {
