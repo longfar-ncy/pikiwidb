@@ -7,6 +7,8 @@
 
 #include "cmd_hash.h"
 
+#include <algorithm>
+
 #include "pstd/pstd_string.h"
 #include "store.h"
 
