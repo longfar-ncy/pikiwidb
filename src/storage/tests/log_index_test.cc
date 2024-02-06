@@ -131,16 +131,17 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     const auto& collector = prop_it->second->user_collected_properties;
     auto it = collector.find(LogIndexTablePropertiesCollector::kPropertyName_);
     EXPECT_NE(it, collector.cend());
-    EXPECT_EQ(it->second, fmt::format("{}/{}", test_times_ - 1, redis->GetDB()->GetLatestSequenceNumber() / 2 - 1));
+    EXPECT_EQ(it->second, fmt::format("{}/{}", test_times_ - 1, test_times_ * 2 - 1));
   }
   {
     ++prop_it;
     const auto& collector = prop_it->second->user_collected_properties;
     auto it = collector.find(LogIndexTablePropertiesCollector::kPropertyName_);
     EXPECT_NE(it, collector.cend());
-    EXPECT_EQ(it->second, fmt::format("{}/{}", test_times_ * 2 - 1, redis->GetDB()->GetLatestSequenceNumber() - 1));
+    EXPECT_EQ(it->second, fmt::format("{}/{}", test_times_ * 2 - 1, test_times_ * 4 - 1));
   }
   // meta cf 中的日志索引比 data cf 中的索引少 1，不知道为啥
+  // meta cf 的 seq no = log idx * 2 - 1，data cf 的 seq no = log idx * 2，每个 WriteBatch 递增 2，因此 seqno 正常
 
   properties.clear();
   s = redis->GetDB()->GetPropertiesOfAllTables(redis->GetColumnFamilyHandle(kHashesDataCF), &properties);
@@ -151,13 +152,13 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     const auto& collector = prop_it->second->user_collected_properties;
     auto it = collector.find(LogIndexTablePropertiesCollector::kPropertyName_);
     EXPECT_NE(it, collector.cend());
-    EXPECT_EQ(it->second, fmt::format("{}/{}", test_times_, redis->GetDB()->GetLatestSequenceNumber() / 2));
+    EXPECT_EQ(it->second, fmt::format("{}/{}", test_times_, test_times_ * 2));
   }
   {
     ++prop_it;
     const auto& collector = prop_it->second->user_collected_properties;
     auto it = collector.find(LogIndexTablePropertiesCollector::kPropertyName_);
     EXPECT_NE(it, collector.cend());
-    EXPECT_EQ(it->second, fmt::format("{}/{}", test_times_ * 2, redis->GetDB()->GetLatestSequenceNumber()));
+    EXPECT_EQ(it->second, fmt::format("{}/{}", test_times_ * 2, test_times_ * 4));
   }
 }
