@@ -68,8 +68,7 @@ class LogIndexTablePropertiesCollector : public rocksdb::TablePropertiesCollecto
   const char *Name() const override { return "LogIndexTablePropertiesCollector"; }
   rocksdb::UserCollectedProperties GetReadableProperties() const override;
 
-  static std::optional<int64_t> ReadLogIndexFromTableProperties(
-      const std::shared_ptr<const rocksdb::TableProperties> &table_props);
+  static int64_t ReadLogIndexFromTableProperties(const std::shared_ptr<const rocksdb::TableProperties> &table_props);
   static const inline std::string kPropertyName_{"latest-applied-log-index/largest-sequence-number"};
 
  private:
@@ -77,7 +76,6 @@ class LogIndexTablePropertiesCollector : public rocksdb::TablePropertiesCollecto
 
  private:
   const LogIndexAndSequenceCollector *collector_;
-  // rocksdb::SequenceNumber smallest_seqno_ = 0;
   rocksdb::SequenceNumber largest_seqno_ = 0;
   mutable std::pair<rocksdb::SequenceNumber, int64_t> cache_;
 };

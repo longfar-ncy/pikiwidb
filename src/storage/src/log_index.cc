@@ -1,10 +1,10 @@
 #include "src/log_index.h"
 
-#include <cinttypes>
 #include <cstdint>
 #include <optional>
 #include <vector>
 
+#include "fmt/core.h"
 #include "src/redis.h"
 #include "storage/storage.h"
 
@@ -22,10 +22,7 @@ rocksdb::Status LogIndexOfCF::Init(Redis *db, size_t cf_num) {
     for (const auto &[_, props] : collection) {
       assert(props->column_family_id == i);
       auto current_latest_applied_index = LogIndexTablePropertiesCollector::ReadLogIndexFromTableProperties(props);
-      if (!current_latest_applied_index.has_value()) {
-        *current_latest_applied_index = 0;
-      }
-      applied_log_index_[i] = std::max(applied_log_index_[i], *current_latest_applied_index);
+      applied_log_index_[i] = std::max(applied_log_index_[i], current_latest_applied_index);
     }
   }
   return Status::OK();
@@ -94,12 +91,12 @@ rocksdb::UserCollectedProperties LogIndexTablePropertiesCollector::GetReadablePr
   return rocksdb::UserCollectedProperties{Materialize()};
 }
 
-std::optional<int64_t> LogIndexTablePropertiesCollector::ReadLogIndexFromTableProperties(
+int64_t LogIndexTablePropertiesCollector::ReadLogIndexFromTableProperties(
     const std::shared_ptr<const rocksdb::TableProperties> &table_props) {
   const auto &user_properties = table_props->user_collected_properties;
   const auto it = user_properties.find(kPropertyName_);
   if (it == user_properties.end()) {
-    return std::nullopt;
+    return 0;
   }
   int64_t applied_log_index{};
   rocksdb::SequenceNumber largest_seqno{};
@@ -108,14 +105,12 @@ std::optional<int64_t> LogIndexTablePropertiesCollector::ReadLogIndexFromTablePr
 }
 
 std::pair<std::string, std::string> LogIndexTablePropertiesCollector::Materialize() const {
-  char buf[64];
   if (cache_.first != largest_seqno_) {
     cache_.first = largest_seqno_;
     cache_.second = collector_->FindAppliedLogIndex(largest_seqno_);
   }
   auto applied_log_index = cache_.second;
-  snprintf(buf, 64, "%" PRIi64 "/%" PRIu64 "", applied_log_index, largest_seqno_);
-  return std::make_pair(kPropertyName_, std::string(buf));
+  return std::make_pair(kPropertyName_, fmt::format("{}/{}", applied_log_index, largest_seqno_));
 }
 
 }  // namespace storage
