@@ -1,27 +1,10 @@
-#include <chrono>
-
 #include "gtest/gtest.h"
-#include "fmt/core.h"
 
 #include "storage/storage.h"
 #include "storage/util.h"
+#include "utils.h"
 
 using namespace storage;  // NOLINT
-
-class TimerGuard {
- public:
-  TimerGuard(std::string&& name = "") : name_(name) { start_ = std::chrono::steady_clock::now(); }
-  ~TimerGuard() {
-    Stop();
-    fmt::println("{} cost {}s", name_, std::chrono::duration<double>{end_ - start_}.count());
-  }
-
- private:
-  void Stop() { end_ = std::chrono::steady_clock::now(); }
-  std::string name_;
-  std::chrono::steady_clock::time_point start_;
-  std::chrono::steady_clock::time_point end_;
-};
 
 class BinlogHashTest : public ::testing::Test {
  public:
