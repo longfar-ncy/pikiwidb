@@ -77,9 +77,9 @@ class LogIndexTablePropertiesCollector : public rocksdb::TablePropertiesCollecto
 
  private:
   const LogIndexAndSequenceCollector *collector_;
-  rocksdb::SequenceNumber smallest_seqno_ = 0;
+  // rocksdb::SequenceNumber smallest_seqno_ = 0;
   rocksdb::SequenceNumber largest_seqno_ = 0;
-  mutable std::map<rocksdb::SequenceNumber, int64_t> tmp_;
+  mutable std::pair<rocksdb::SequenceNumber, int64_t> cache_;
 };
 
 class LogIndexTablePropertiesCollectorFactory : public rocksdb::TablePropertiesCollectorFactory {
