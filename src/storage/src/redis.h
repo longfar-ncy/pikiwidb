@@ -14,6 +14,7 @@
 #include "rocksdb/slice.h"
 #include "rocksdb/status.h"
 
+#include "log_index.h"
 #include "pstd/env.h"
 #include "pstd/log.h"
 #include "src/custom_comparator.h"
@@ -299,6 +300,10 @@ class Redis {
   void ScanZsets();
   void ScanSets();
 
+  void UpdateLogIndex(LogIndex applied_log_index, SequenceNumber seqno) {
+    log_index_collector_.Update(applied_log_index, seqno);
+  }
+
   TypeIterator* CreateIterator(const DataType& type, const std::string& pattern, const Slice* lower_bound,
                                const Slice* upper_bound) {
     return CreateIterator(DataTypeTag[type], pattern, lower_bound, upper_bound);
@@ -361,6 +366,8 @@ class Redis {
   // For raft
   uint32_t raft_timeout_s_ = 10;
   AppendLogFunction append_log_function_;
+  LogIndexAndSequenceCollector log_index_collector_;
+  LogIndexOfCF log_index_of_all_cfs_;
 
   Status UpdateSpecificKeyStatistics(const DataType& dtype, const std::string& key, uint64_t count);
   Status UpdateSpecificKeyDuration(const DataType& dtype, const std::string& key, uint64_t duration);

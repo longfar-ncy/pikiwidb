@@ -2259,7 +2259,7 @@ void Storage::DisableWal(const bool is_wal_disable) {
   }
 }
 
-Status Storage::OnBinlogWrite(const pikiwidb::Binlog& log) {
+Status Storage::OnBinlogWrite(const pikiwidb::Binlog& log, LogIndex log_idx) {
   auto& inst = insts_[log.slot_idx()];
 
   rocksdb::WriteBatch batch;
@@ -2279,8 +2279,12 @@ Status Storage::OnBinlogWrite(const pikiwidb::Binlog& log) {
         return Status::Incomplete(msg);
     }
   }
-
-  return inst->GetDB()->Write(inst->GetWriteOptions(), &batch);
+  auto first_seqno = inst->GetDB()->GetLatestSequenceNumber() + 1;
+  auto s = inst->GetDB()->Write(inst->GetWriteOptions(), &batch);
+  if (s.ok()) {
+    inst->UpdateLogIndex(log_idx, first_seqno);
+  }
+  return s;
 }
 
 }  //  namespace storage

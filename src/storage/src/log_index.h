@@ -46,7 +46,7 @@ class LogIndexOfCF {
 
  public:
   // Read the largest log index of each column family from all sst files
-  rocksdb::Status Init(Redis *db, size_t cf_num);
+  rocksdb::Status Init(Redis *db);
 
   LogIndex GetSmallestAppliedLogIndex() const {
     return GetSmallestLogIndex([](const LogIndexPair &p) { return p.applied_log_index.load(); });
@@ -58,10 +58,10 @@ class LogIndexOfCF {
     cf_[cf_id].flushed_log_index = std::max(cf_[cf_id].flushed_log_index.load(), log_index);
   }
 
-  bool CheckIfApplyAndSet(size_t cf_id, LogIndex cur_log_index) {
-    cf_[cf_id].applied_log_index = std::max(cf_[cf_id].applied_log_index.load(), cur_log_index);
-    return cur_log_index == cf_[cf_id].applied_log_index.load();
-  }
+  // bool CheckIfApplyAndSet(size_t cf_id, LogIndex cur_log_index) {
+  //   cf_[cf_id].applied_log_index = std::max(cf_[cf_id].applied_log_index.load(), cur_log_index);
+  //   return cur_log_index == cf_[cf_id].applied_log_index.load();
+  // }
 
  private:
   LogIndex GetSmallestLogIndex(std::function<LogIndex(const LogIndexPair &)> &&f) const;

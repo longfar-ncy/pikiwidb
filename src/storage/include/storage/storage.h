@@ -52,6 +52,7 @@ using BlockBasedTableOptions = rocksdb::BlockBasedTableOptions;
 using Status = rocksdb::Status;
 using Slice = rocksdb::Slice;
 using Env = rocksdb::Env;
+using LogIndex = int64_t;
 
 class Redis;
 enum class OptionType;
@@ -1095,7 +1096,7 @@ class Storage {
 
   Status SetOptions(const OptionType& option_type, const std::unordered_map<std::string, std::string>& options);
   void GetRocksDBInfo(std::string& info);
-  Status OnBinlogWrite(const pikiwidb::Binlog& log);
+  Status OnBinlogWrite(const pikiwidb::Binlog& log, LogIndex log_idx);
 
  private:
   std::vector<std::unique_ptr<Redis>> insts_;

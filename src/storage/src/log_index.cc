@@ -6,8 +6,8 @@
 
 namespace storage {
 
-rocksdb::Status storage::LogIndexOfCF::Init(Redis *db, size_t cf_num) {
-  for (int i = 0; i < cf_num; i++) {
+rocksdb::Status storage::LogIndexOfCF::Init(Redis *db) {
+  for (int i = 0; i < cf_.size(); i++) {
     rocksdb::TablePropertiesCollection collection;
     auto s = db->GetDB()->GetPropertiesOfAllTables(db->GetColumnFamilyHandles()[i], &collection);
     if (!s.ok()) {
