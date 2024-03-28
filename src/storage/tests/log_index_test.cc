@@ -173,7 +173,7 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
 
   // more keys
   {
-    add_kvs(1, 100);
+    add_kvs(1, 1000);
     flushdb();
 
     rocksdb::TablePropertiesCollection properties;
@@ -181,23 +181,23 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     ASSERT_TRUE(s.ok());
     auto res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
     EXPECT_TRUE(res.has_value());
-    EXPECT_EQ(res->GetAppliedLogIndex(), 100);
-    EXPECT_EQ(res->GetSequenceNumber(), 199);
+    EXPECT_EQ(res->GetAppliedLogIndex(), 1000);
+    EXPECT_EQ(res->GetSequenceNumber(), 1999);
 
     properties.clear();
     s = redis->GetDB()->GetPropertiesOfAllTables(redis->GetColumnFamilyHandles()[kHashesDataCF], &properties);
     ASSERT_TRUE(s.ok());
     res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
     EXPECT_TRUE(res.has_value());
-    EXPECT_EQ(res->GetAppliedLogIndex(), 100);
-    EXPECT_EQ(res->GetSequenceNumber(), 200);
+    EXPECT_EQ(res->GetAppliedLogIndex(), 1000);
+    EXPECT_EQ(res->GetSequenceNumber(), 2000);
   }
 
   // more flush
   {
     for (int i = 1; i < 10; i++) {
-      auto start = i * 100;
-      auto end = start + 100;
+      auto start = i * 1000;
+      auto end = start + 1000;
 
       add_kvs(start, end);
       flushdb();
