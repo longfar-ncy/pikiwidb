@@ -1,10 +1,11 @@
+#include <atomic>
 #include <memory>
 #include <string>
 
 #include "gtest/gtest.h"
 
-#include "praft/praft.h"
-#include "pstd/pstd_string.h"
+#include "pstd/log.h"
+#include "pstd/thread_pool.h"
 #include "rocksdb/db.h"
 #include "rocksdb/listener.h"
 #include "rocksdb/options.h"
@@ -13,6 +14,16 @@
 #include "storage/util.h"
 
 using namespace storage;  // NOLINT
+
+static void InitLogs() {
+  logger::Init("logs/pikiwidb_server.log");
+
+#if BUILD_DEBUG
+  spdlog::set_level(spdlog::level::debug);
+#else
+  spdlog::set_level(spdlog::level::info);
+#endif
+}
 
 TEST(TablePropertyTest, SimpleTest) {
   constexpr const char* kDbPath = "./log_index_test_db";
@@ -50,17 +61,47 @@ TEST(TablePropertyTest, SimpleTest) {
   DeleteFiles(kDbPath);
 }
 
+class LogQueue : public pstd::noncopyable {
+ public:
+  using WriteCallback = std::function<Status(const pikiwidb::Binlog&, LogIndex idx)>;
+
+  explicit LogQueue(WriteCallback&& cb) : write_cb_(std::move(cb)) { consumer_.SetMaxIdleThread(1); }
+
+  void AppendLog(const pikiwidb::Binlog& log, std::promise<Status>&& promise) {
+    auto task = [&] {
+      auto idx = next_log_idx_.fetch_add(1);
+      auto s = write_cb_(log, idx);
+      promise.set_value(s);
+    };
+    consumer_.ExecuteTask(std::move(task));
+  }
+
+ private:
+  WriteCallback write_cb_;
+  pstd::ThreadPool consumer_;
+  std::atomic<LogIndex> next_log_idx_{1};
+};
+
 class LogIndexTest : public ::testing::Test {
  public:
-  LogIndexTest() {
+  LogIndexTest()
+      : log_queue_([this](const pikiwidb::Binlog& log, LogIndex log_idx) { return db_.OnBinlogWrite(log, log_idx); }) {
+    options_.options.create_if_missing = true;
+    options_.db_instance_num = 1;
+    options_.append_log_function = [this](const pikiwidb::Binlog& log, std::promise<Status>&& promise) {
+      log_queue_.AppendLog(log, std::move(promise));
+    };
+    InitLogs();
+  }
+  ~LogIndexTest() override { DeleteFiles(db_path_.c_str()); }
+
+  void SetUp() override {
     if (access(db_path_.c_str(), F_OK) != 0) {
       mkdir(db_path_.c_str(), 0755);
     }
-    options_.options.create_if_missing = true;
-    auto cluster_id = pstd::RandomHexChars(RAFT_DBID_LEN);
-    pikiwidb::PRaft::Instance().Init(cluster_id, false);
+    auto s = db_.Open(options_, db_path_);
+    ASSERT_TRUE(s.ok());
   }
-  ~LogIndexTest() override { DeleteFiles(db_path_.c_str()); }
 
   std::string db_path_{"./test_db/log_index_test"};
   StorageOptions options_;
@@ -71,6 +112,7 @@ class LogIndexTest : public ::testing::Test {
   std::string value_prefix_ = "value";
   rocksdb::WriteOptions write_options_;
   rocksdb::ReadOptions read_options_;
+  LogQueue log_queue_;
 };
 
 TEST_F(LogIndexTest, DoNothing) {}
