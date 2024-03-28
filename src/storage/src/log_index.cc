@@ -13,18 +13,21 @@ rocksdb::Status storage::LogIndexOfCF::Init(Redis *db) {
     if (!s.ok()) {
       return s;
     }
-    LogIndex max_applied_log_index{};
-    LogIndex max_flushed_log_index{};
-    for (const auto &[_, props] : collection) {
-      assert(props->column_family_id == i);
-      auto res = LogIndexTablePropertiesCollector::ReadStatsFromTableProps(props);
-      if (res.has_value()) {
-        max_applied_log_index = std::max(max_applied_log_index, res->GetAppliedLogIndex());
-        max_flushed_log_index = std::max(max_flushed_log_index, res->GetAppliedLogIndex());
-      }
+    // LogIndex max_applied_log_index{};
+    // LogIndex max_flushed_log_index{};
+    // for (const auto &[_, props] : collection) {
+    //   assert(props->column_family_id == i);
+    //   auto res = LogIndexTablePropertiesCollector::ReadStatsFromTableProps(props);
+    //   if (res.has_value()) {
+    //     max_applied_log_index = std::max(max_applied_log_index, res->GetAppliedLogIndex());
+    //     max_flushed_log_index = std::max(max_flushed_log_index, res->GetAppliedLogIndex());
+    //   }
+    // }
+    auto res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(collection);
+    if (res.has_value()) {
+      cf_[i].applied_log_index.store(res->GetAppliedLogIndex());
+      cf_[i].flushed_log_index.store(res->GetAppliedLogIndex());
     }
-    cf_[i].applied_log_index.store(max_applied_log_index);
-    cf_[i].flushed_log_index.store(max_flushed_log_index);
   }
   return Status::OK();
 }
@@ -55,7 +58,7 @@ LogIndex LogIndexOfCF::GetSmallestLogIndex(std::function<LogIndex(const LogIndex
 }
 
 LogIndex LogIndexAndSequenceCollector::FindAppliedLogIndex(SequenceNumber seqno) const {
-  if (seqno == 0) {
+  if (list_.empty()) {
     return 0;
   }
 
@@ -94,4 +97,18 @@ void LogIndexAndSequenceCollector::Update(LogIndex smallest_applied_log_index, S
   }
 }
 
+auto LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(
+    const rocksdb::TablePropertiesCollection &collection) -> std::optional<LogIndexAndSequencePair> {
+  LogIndex max_flushed_log_index{-1};
+  rocksdb::SequenceNumber seqno{};
+  for (const auto &[_, props] : collection) {
+    auto res = LogIndexTablePropertiesCollector::ReadStatsFromTableProps(props);
+    if (res.has_value() && res->GetAppliedLogIndex() > max_flushed_log_index) {
+      max_flushed_log_index = res->GetAppliedLogIndex();
+      seqno = res->GetSequenceNumber();
+    }
+  }
+  return max_flushed_log_index == -1 ? std::nullopt
+                                     : std::make_optional<LogIndexAndSequencePair>(max_flushed_log_index, seqno);
+}
 }  // namespace storage

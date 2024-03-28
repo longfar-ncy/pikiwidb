@@ -370,7 +370,7 @@ void PRaft::on_apply(braft::Iterator& iter) {
     Binlog log;
     butil::IOBufAsZeroCopyInputStream wrapper(iter.data());
     bool success = log.ParseFromZeroCopyStream(&wrapper);
-    DEBUG("apply binlog: {}", log.ShortDebugString());
+    DEBUG("apply binlog{}: {}", iter.index(), log.ShortDebugString());
 
     if (!success) {
       static constexpr std::string_view kMsg = "Failed to parse from protobuf when on_apply";

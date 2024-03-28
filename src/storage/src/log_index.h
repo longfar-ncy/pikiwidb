@@ -41,7 +41,7 @@ class LogIndexAndSequencePair {
 class LogIndexOfCF {
   struct LogIndexPair {
     std::atomic<LogIndex> applied_log_index = 0;  // newest record in memtable.
-    std::atomic<LogIndex> flushed_log_index = 0;  // newest rocord in sst file.
+    std::atomic<LogIndex> flushed_log_index = 0;  // newest record in sst file.
   };
 
  public:
@@ -150,9 +150,12 @@ class LogIndexTablePropertiesCollector : public rocksdb::TablePropertiesCollecto
   static std::optional<LogIndexAndSequencePair> ReadStatsFromTableProps(
       const std::shared_ptr<const rocksdb::TableProperties> &table_props);
 
+  static auto GetLargestLogIndexFromTableCollection(const rocksdb::TablePropertiesCollection &collection)
+      -> std::optional<LogIndexAndSequencePair>;
+
  private:
   std::pair<std::string, std::string> Materialize() const {
-    if (0 == cache_) {
+    if (-1 == cache_) {
       cache_ = collector_.FindAppliedLogIndex(largest_seqno_);
     }
     return std::make_pair(static_cast<std::string>(kPropertyName), fmt::format("{}/{}", cache_, largest_seqno_));
@@ -161,7 +164,7 @@ class LogIndexTablePropertiesCollector : public rocksdb::TablePropertiesCollecto
  private:
   const LogIndexAndSequenceCollector &collector_;
   SequenceNumber largest_seqno_ = 0;
-  mutable LogIndex cache_{};
+  mutable LogIndex cache_{-1};
   // SequenceNumber smallest_seqno_ = 0;
 };
 
