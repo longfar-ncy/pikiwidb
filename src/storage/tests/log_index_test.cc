@@ -1,3 +1,6 @@
+#include <filesystem>
+#define NDEBUG
+
 #include <atomic>
 #include <cstdio>
 #include <memory>
@@ -22,12 +25,7 @@ class LogIniter {
  public:
   LogIniter() {
     logger::Init("./log_index_test.log");
-
-#if BUILD_DEBUG
-    spdlog::set_level(spdlog::level::debug);
-#else
-    spdlog::set_level(spdlog::level::info);
-#endif
+    spdlog::set_level(spdlog::level::err);
   }
 };
 static LogIniter initer;
@@ -103,9 +101,10 @@ class LogIndexTest : public ::testing::Test {
   ~LogIndexTest() override { DeleteFiles(db_path_.c_str()); }
 
   void SetUp() override {
-    if (access(db_path_.c_str(), F_OK) != 0) {
-      mkdir(db_path_.c_str(), 0755);
+    if (access(db_path_.c_str(), F_OK) == 0) {
+      std::filesystem::remove_all(db_path_.c_str());
     }
+    mkdir(db_path_.c_str(), 0755);
     auto s = db_.Open(options_, db_path_);
     ASSERT_TRUE(s.ok());
   }
@@ -192,5 +191,32 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     EXPECT_TRUE(res.has_value());
     EXPECT_EQ(res->GetAppliedLogIndex(), 100);
     EXPECT_EQ(res->GetSequenceNumber(), 200);
+  }
+
+  // more flush
+  {
+    for (int i = 1; i < 10; i++) {
+      auto start = i * 100;
+      auto end = start + 100;
+
+      add_kvs(start, end);
+      flushdb();
+
+      rocksdb::TablePropertiesCollection properties;
+      auto s = redis->GetDB()->GetPropertiesOfAllTables(redis->GetColumnFamilyHandles()[kHashesMetaCF], &properties);
+      ASSERT_TRUE(s.ok());
+      auto res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
+      EXPECT_TRUE(res.has_value());
+      EXPECT_EQ(res->GetAppliedLogIndex(), end);
+      EXPECT_EQ(res->GetSequenceNumber(), end * 2 - 1);
+
+      properties.clear();
+      s = redis->GetDB()->GetPropertiesOfAllTables(redis->GetColumnFamilyHandles()[kHashesDataCF], &properties);
+      ASSERT_TRUE(s.ok());
+      res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
+      EXPECT_TRUE(res.has_value());
+      EXPECT_EQ(res->GetAppliedLogIndex(), end);
+      EXPECT_EQ(res->GetSequenceNumber(), end * 2);
+    }
   }
 }
