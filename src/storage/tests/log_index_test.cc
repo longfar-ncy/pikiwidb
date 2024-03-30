@@ -1,19 +1,15 @@
-#include <filesystem>
-#define NDEBUG
-
 #include <atomic>
-#include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <string>
 
-#include "fmt/core.h"
 #include "gtest/gtest.h"
-
-#include "pstd/log.h"
-#include "pstd/thread_pool.h"
 #include "rocksdb/db.h"
 #include "rocksdb/listener.h"
 #include "rocksdb/options.h"
+
+#include "pstd/log.h"
+#include "pstd/thread_pool.h"
 #include "src/log_index.h"
 #include "src/redis.h"
 #include "storage/storage.h"
