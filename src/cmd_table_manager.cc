@@ -92,6 +92,7 @@ void CmdTableManager::InitCmdTable() {
   ADD_COMMAND(HSetNX, 4);
   ADD_COMMAND(HIncrby, 4);
   ADD_COMMAND(HRandField, -2);
+  ADD_COMMAND(HExists, 3);
 
   // set
   ADD_COMMAND(SIsMember, 3);

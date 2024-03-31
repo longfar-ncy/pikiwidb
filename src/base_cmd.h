@@ -85,6 +85,7 @@ const std::string kCmdNameHIncrbyFloat = "hincrbyfloat";
 const std::string kCmdNameHSetNX = "hsetnx";
 const std::string kCmdNameHIncrby = "hincrby";
 const std::string kCmdNameHRandField = "hrandfield";
+const std::string kCmdNameHExists = "hexists";
 
 // set cmd
 const std::string kCmdNameSIsMember = "sismember";
