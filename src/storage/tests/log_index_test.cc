@@ -5,9 +5,11 @@
 #include <string>
 #include <vector>
 
+#include "fmt/core.h"
 #include "gtest/gtest.h"
 #include "rocksdb/db.h"
 #include "rocksdb/listener.h"
+#include "rocksdb/metadata.h"
 #include "rocksdb/options.h"
 
 #include "pstd/log.h"
@@ -28,7 +30,7 @@ class LogIniter {
 };
 static LogIniter initer;
 
-TEST(TablePropertyTest, DISABLED_SimpleTest) {
+TEST(TablePropertyTest, SimpleTest) {
   constexpr const char* kDbPath = "./log_index_test_db";
   rocksdb::Options options;
   options.create_if_missing = true;
@@ -191,7 +193,7 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
 
   // more keys
   {
-    add_kvs(1, 1000);
+    add_kvs(1, 10000);
     flushdb();
 
     rocksdb::TablePropertiesCollection properties;
@@ -200,8 +202,8 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     auto res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
     EXPECT_TRUE(res.has_value());
     assert(res.has_value());
-    EXPECT_EQ(res->GetAppliedLogIndex(), 1000);
-    EXPECT_EQ(res->GetSequenceNumber(), 1999);
+    EXPECT_EQ(res->GetAppliedLogIndex(), 10000);
+    EXPECT_EQ(res->GetSequenceNumber(), 19999);
 
     properties.clear();
     s = redis->GetDB()->GetPropertiesOfAllTables(redis->GetColumnFamilyHandles()[kHashesDataCF], &properties);
@@ -209,18 +211,38 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
     EXPECT_TRUE(res.has_value());
     assert(res.has_value());
-    EXPECT_EQ(res->GetAppliedLogIndex(), 1000);
-    EXPECT_EQ(res->GetSequenceNumber(), 2000);
+    EXPECT_EQ(res->GetAppliedLogIndex(), 10000);
+    EXPECT_EQ(res->GetSequenceNumber(), 20000);
   }
 
   // more flush
   {
     for (int i = 1; i < 20; i++) {
-      auto start = i * 1000;
-      auto end = start + 1000;
+      fmt::println("==================i={} start==========================", i);
+      auto start = i * 10000;
+      auto end = start + 10000;
 
       add_kvs(start, end);
       flushdb();
+      // sleep(1);
+
+      {
+        rocksdb::TablePropertiesCollection properties;
+        auto s = redis->GetDB()->GetPropertiesOfAllTables(redis->GetColumnFamilyHandles()[kHashesMetaCF], &properties);
+        s = redis->GetDB()->GetPropertiesOfAllTables(redis->GetColumnFamilyHandles()[kHashesDataCF], &properties);
+        std::vector<rocksdb::LiveFileMetaData> metas;
+        redis->GetDB()->GetLiveFilesMetaData(&metas);
+        for (const auto& meta : metas) {
+          auto file = meta.directory + meta.name;
+          if (!properties.contains(file)) {
+            fmt::println("{}: L{}, {}, not contains", file, meta.level, meta.column_family_name);
+            continue;
+          }
+          auto res = LogIndexTablePropertiesCollector::ReadStatsFromTableProps(properties.at(file));
+          assert(res.has_value());
+          fmt::println("{}: L{}, {}, logidx={}", file, meta.level, meta.column_family_name, res->GetAppliedLogIndex());
+        }
+      }
 
       rocksdb::TablePropertiesCollection properties;
       auto s = redis->GetDB()->GetPropertiesOfAllTables(redis->GetColumnFamilyHandles()[kHashesMetaCF], &properties);
