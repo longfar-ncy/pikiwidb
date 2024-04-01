@@ -1,7 +1,9 @@
 #include <atomic>
 #include <filesystem>
 #include <memory>
+#include <random>
 #include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "rocksdb/db.h"
@@ -115,6 +117,24 @@ class LogIndexTest : public ::testing::Test {
   rocksdb::WriteOptions write_options_;
   rocksdb::ReadOptions read_options_;
   LogQueue log_queue_;
+
+  auto CreateRandomKey(int i, size_t length) -> std::string {
+    auto res = CreateRandomFieldValue(i, length);
+    res.append(key_);
+    return res;
+  }
+  static auto CreateRandomFieldValue(int i, size_t length) -> std::string {
+    std::mt19937 gen(i);
+    std::string str(length, 0);
+    for (int i = 0; i < length; i++) {
+      str[i] = chars[gen() % (sizeof(chars) / sizeof(char))];
+    }
+    return str;
+  }
+  constexpr static char chars[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+                                   'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F',
+                                   'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V',
+                                   'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
 };
 
 TEST_F(LogIndexTest, DoNothing) {}
@@ -123,17 +143,17 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
   auto& redis = db_.GetDBInstance(key_);
   auto add_kvs = [&](int start, int end) {
     for (int i = start; i < end; i++) {
-      auto field = field_prefix_ + std::to_string(i);
-      auto value = value_prefix_ + std::to_string(i);
+      auto key = CreateRandomKey(i, 256);
+      auto fv = CreateRandomFieldValue(i, 512);
       int32_t res{};
-      auto s = redis->HSet(key_, field, value, &res);
+      auto s = redis->HSet(key, fv, fv, &res);
       ASSERT_TRUE(s.ok());
       ASSERT_EQ(1, res);
 
       std::string get_res;
-      s = redis->HGet(key_, field, &get_res);
+      s = redis->HGet(key, fv, &get_res);
       ASSERT_TRUE(s.ok());
-      ASSERT_EQ(value, get_res);
+      ASSERT_EQ(fv, get_res);
     }
   };
   auto flushdb = [&]() {
@@ -154,6 +174,7 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     ASSERT_TRUE(properties.size() == 1);
     auto res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
     EXPECT_TRUE(res.has_value());
+    assert(res.has_value());
     EXPECT_EQ(res->GetAppliedLogIndex(), 1);
     EXPECT_EQ(res->GetSequenceNumber(), 1);
 
@@ -163,6 +184,7 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     ASSERT_TRUE(properties.size() == 1);
     res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
     EXPECT_TRUE(res.has_value());
+    assert(res.has_value());
     EXPECT_EQ(res->GetAppliedLogIndex(), 1);
     EXPECT_EQ(res->GetSequenceNumber(), 2);
   }
@@ -177,6 +199,7 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     ASSERT_TRUE(s.ok());
     auto res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
     EXPECT_TRUE(res.has_value());
+    assert(res.has_value());
     EXPECT_EQ(res->GetAppliedLogIndex(), 1000);
     EXPECT_EQ(res->GetSequenceNumber(), 1999);
 
@@ -185,13 +208,14 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
     ASSERT_TRUE(s.ok());
     res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
     EXPECT_TRUE(res.has_value());
+    assert(res.has_value());
     EXPECT_EQ(res->GetAppliedLogIndex(), 1000);
     EXPECT_EQ(res->GetSequenceNumber(), 2000);
   }
 
   // more flush
   {
-    for (int i = 1; i < 10; i++) {
+    for (int i = 1; i < 20; i++) {
       auto start = i * 1000;
       auto end = start + 1000;
 
@@ -203,6 +227,7 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
       ASSERT_TRUE(s.ok());
       auto res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
       EXPECT_TRUE(res.has_value());
+      assert(res.has_value());
       EXPECT_EQ(res->GetAppliedLogIndex(), end);
       EXPECT_EQ(res->GetSequenceNumber(), end * 2 - 1);
 
@@ -211,6 +236,7 @@ TEST_F(LogIndexTest, SimpleTest) {  // NOLINT
       ASSERT_TRUE(s.ok());
       res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(properties);
       EXPECT_TRUE(res.has_value());
+      assert(res.has_value());
       EXPECT_EQ(res->GetAppliedLogIndex(), end);
       EXPECT_EQ(res->GetSequenceNumber(), end * 2);
     }
