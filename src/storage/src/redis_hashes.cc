@@ -119,7 +119,7 @@ Status Redis::HDel(const Slice& key, const std::vector<std::string>& fields, int
     }
   }
 
-	auto batch = Batch::CreateBatch(this);
+  auto batch = Batch::CreateBatch(this);
   rocksdb::ReadOptions read_options;
   const rocksdb::Snapshot* snapshot;
 
@@ -166,7 +166,7 @@ Status Redis::HDel(const Slice& key, const std::vector<std::string>& fields, int
   } else {
     return s;
   }
-	batch->Commit();
+  s = batch->Commit();
   UpdateSpecificKeyStatistics(DataType::kHashes, key.ToString(), statistic);
   return s;
 }

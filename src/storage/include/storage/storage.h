@@ -7,8 +7,10 @@
 #define INCLUDE_STORAGE_STORAGE_H_
 
 #include <unistd.h>
+#include <cstdint>
 #include <functional>
 #include <future>
+#include <limits>
 #include <map>
 #include <queue>
 #include <string>
@@ -70,7 +72,7 @@ struct StorageOptions {
   size_t db_instance_num = 3;  // default = 3
   int db_id;
   AppendLogFunction append_log_function;
-  uint32_t raft_timeout_s = 10;
+  uint32_t raft_timeout_s = std::numeric_limits<uint32_t>::max();
   Status ResetOptions(const OptionType& option_type, const std::unordered_map<std::string, std::string>& options_map);
 };
 
