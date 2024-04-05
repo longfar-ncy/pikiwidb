@@ -12,6 +12,7 @@
 
 #include <fmt/core.h>
 
+#include "batch.h"
 #include "pstd/log.h"
 #include "src/base_data_key_format.h"
 #include "src/base_data_value_format.h"
@@ -20,7 +21,6 @@
 #include "src/scope_snapshot.h"
 #include "storage/storage_define.h"
 #include "storage/util.h"
-#include "batch.h"
 
 namespace storage {
 Status Redis::ScanHashesKeyNum(KeyInfo* key_info) {
@@ -632,10 +632,10 @@ Status Redis::HSet(const Slice& key, const Slice& field, const Slice& value, int
     if (parsed_hashes_meta_value.IsStale() || parsed_hashes_meta_value.Count() == 0) {
       version = parsed_hashes_meta_value.InitialMetaValue();
       parsed_hashes_meta_value.SetCount(1);
-       batch->Put(kHashesMetaCF, base_meta_key.Encode(), meta_value);
+      batch->Put(kHashesMetaCF, base_meta_key.Encode(), meta_value);
       HashesDataKey data_key(key, version, field);
       BaseDataValue internal_value(value);
-       batch->Put(kHashesDataCF, data_key.Encode(), internal_value.Encode());
+      batch->Put(kHashesDataCF, data_key.Encode(), internal_value.Encode());
       *res = 1;
     } else {
       version = parsed_hashes_meta_value.Version();
