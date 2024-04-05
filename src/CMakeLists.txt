@@ -39,6 +39,6 @@ ELSEIF(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
             "-Wl,-U,__Z13GetStackTracePPvii")
 ENDIF()
 
-TARGET_LINK_LIBRARIES(pikiwidb net; dl; fmt; storage; rocksdb; pstd braft brpc ssl crypto zlib protobuf leveldb gflags  z praft "${LIB}")
+TARGET_LINK_LIBRARIES(pikiwidb net; dl; fmt; storage; rocksdb; pstd braft brpc ssl crypto zlib protobuf leveldb gflags  z praft praft_pb "${LIB}")
 
 SET_TARGET_PROPERTIES(pikiwidb PROPERTIES LINKER_LANGUAGE CXX)

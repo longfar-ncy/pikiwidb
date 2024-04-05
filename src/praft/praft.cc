@@ -22,6 +22,7 @@
 #include "client.h"
 #include "config.h"
 #include "pikiwidb.h"
+#include "praft_service.h"
 #include "store.h"
 
 #define ERROR_LOG_AND_STATUS(msg) \
@@ -44,6 +45,11 @@ butil::Status PRaft::Init(std::string& group_id, bool initial_conf_is_null) {
 
   server_ = std::make_unique<brpc::Server>();
   auto port = g_config.port + pikiwidb::g_config.raft_port_offset;
+  // Add your service into RPC server
+  DummyServiceImpl service(&PRAFT);
+  if (server_->AddService(&service, brpc::SERVER_DOESNT_OWN_SERVICE) != 0) {
+    return ERROR_LOG_AND_STATUS("Failed to add service");
+  }
   // raft can share the same RPC server. Notice the second parameter, because
   // adding services into a running server is not allowed and the listen
   // address of this server is impossible to get before the server starts. You
@@ -132,7 +138,7 @@ std::string PRaft::GetLeaderAddress() const {
     return "Failed to get leader id";
   }
   auto id = node_->leader_id();
-  id.addr.port -= g_config.raft_port_offset; 
+  id.addr.port -= g_config.raft_port_offset;
   auto addr = butil::endpoint2str(id.addr);
   return addr.c_str();
 }
