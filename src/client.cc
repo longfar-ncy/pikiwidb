@@ -408,6 +408,7 @@ void PClient::executeCommand() {
     return;
   }
 
+  // if user send write command to a node which is not leader, he should get the info of leader
   if (cmdPtr->HasFlag(kCmdFlagsWrite) && PRAFT.IsInitialized() && !PRAFT.IsLeader()) {
     SetRes(CmdRes::kErrOther, fmt::format("MOVED {}", PRAFT.GetLeaderAddress()));
     return;

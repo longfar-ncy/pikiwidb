@@ -9,7 +9,6 @@
 #include "common.h"
 #include "io_thread_pool.h"
 #include "net/tcp_connection.h"
-#include "praft/praft.h"
 
 #define kPIKIWIDB_VERSION "4.0.0"
 
