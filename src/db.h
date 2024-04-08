@@ -7,10 +7,7 @@
 
 #pragma once
 
-#include <memory>
-#include <shared_mutex>
-#include <string>
-
+#include "checkpoint_manager.h"
 #include "storage/storage.h"
 
 namespace pikiwidb {
