@@ -94,6 +94,15 @@ class LogIndexAndSequenceCollector {
     Purge(list_, smallest_applied_log_index, smallest_flushed_log_index);
     // Purge(skip_list_, smallest_applied_log_index, smallest_flushed_log_index);
   }
+  void Purge(LogIndex smallest_flushed_log_index) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    auto second = list_.begin();
+    second++;
+    while (list_.size() >= 2 && second->GetAppliedLogIndex() <= smallest_flushed_log_index) {
+      list_.pop_front();
+      ++second;
+    }
+  }
 
  private:
   template <typename T>
@@ -198,9 +207,12 @@ class LogIndexAndSequenceCollectorPurger : public rocksdb::EventListener {
 
   void OnFlushCompleted(rocksdb::DB *db, const rocksdb::FlushJobInfo &flush_job_info) override {
     cf_->SetFlushedLogIndex(flush_job_info.cf_id, collector_->FindAppliedLogIndex(flush_job_info.largest_seqno));
-    auto smallest_applied_log_index = cf_->GetSmallestAppliedLogIndex();
+    // auto smallest_applied_log_index = cf_->GetSmallestAppliedLogIndex();
+    // auto smallest_flushed_log_index = cf_->GetSmallestFlushedLogIndex();
+    // collector_->Purge(smallest_applied_log_index, smallest_flushed_log_index);
+
     auto smallest_flushed_log_index = cf_->GetSmallestFlushedLogIndex();
-    collector_->Purge(smallest_applied_log_index, smallest_flushed_log_index);
+    collector_->Purge(smallest_flushed_log_index);
   }
 
  private:
