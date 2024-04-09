@@ -8,15 +8,11 @@
 #pragma once
 
 #include <atomic>
-#include <cstdint>
-#include <functional>
-#include <iterator>
-#include <list>
 #include <deque>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string_view>
-#include <utility>
 
 #include "fmt/core.h"
 #include "rocksdb/db.h"
@@ -106,42 +102,10 @@ class LogIndexAndSequenceCollector {
   }
 
  private:
-  template <typename T>
-  void Purge(std::list<T> list, LogIndex smallest_applied_log_index, LogIndex smallest_flushed_log_index) {
-    // purge condition:
-    // We found first pair is greater than both smallest_flushed_log_index and smallest_applied_log_index,
-    // then we keep previous one, and purge everyone before previous one.
-    while (list.size() >= 2) {
-      auto cur = list.begin();
-      auto next = std::next(cur);
-      if (smallest_flushed_log_index > cur->GetAppliedLogIndex() &&
-          smallest_applied_log_index > next->GetAppliedLogIndex()) {
-        list.pop_front();
-      } else {
-        break;
-      }
-      ++cur;
-    }
-  }
-
- private:
   uint64_t step_length_mask_ = 0;
   uint64_t skip_length_mask_ = 0;
   mutable std::mutex mutex_;
   std::deque<LogIndexAndSequencePair> list_;
-  // class PairAndIterator {
-  //  public:
-  //   PairAndIterator() {}
-  //   PairAndIterator(LogIndexAndSequencePair pair, decltype(list_)::iterator iter) : pair_(pair), iter_(iter) {}
-  //   inline int64_t GetAppliedLogIndex() const { return pair_.GetAppliedLogIndex(); }
-  //   inline SequenceNumber GetSequenceNumber() const { return pair_.GetSequenceNumber(); }
-  //   inline decltype(list_)::iterator GetIterator() const { return iter_; }
-
-  //  private:
-  //   LogIndexAndSequencePair pair_;
-  //   decltype(list_)::iterator iter_;
-  // };
-  // std::list<PairAndIterator> skip_list_;
 };
 
 class LogIndexTablePropertiesCollector : public rocksdb::TablePropertiesCollector {

@@ -70,22 +70,29 @@ LogIndex LogIndexAndSequenceCollector::FindAppliedLogIndex(SequenceNumber seqno)
   }
 
   std::lock_guard<std::mutex> guard(mutex_);
-
-  auto it = list_.begin();
-  // use skip list to find the best iterator for search seqno
-  // for (const auto &s : skip_list_) {
-  //   if (seqno >= s.GetSequenceNumber()) {
-  //     it = s.GetIterator();
-  //   } else {
-  //     break;
-  //   }
-  // }
-
-  LogIndex applied_log_index = 0;
-  for (auto it = list_.begin(); it != list_.end() && it->GetSequenceNumber() <= seqno; it++) {
-    applied_log_index = it->GetAppliedLogIndex();
+  if (seqno < list_.front().GetSequenceNumber()) {
+    return 0;
   }
-  return applied_log_index;
+  if (seqno >= list_.back().GetSequenceNumber()) {
+    return list_.back().GetAppliedLogIndex();
+  }
+
+  auto lhs = list_.begin();
+  auto rhs = list_.end() - 1;
+  auto resit = list_.end();
+  while (lhs < rhs) {
+    auto mid = lhs + (rhs - lhs) / 2;
+    if (mid->GetSequenceNumber() > seqno) {
+      rhs = mid;
+    } else if (mid->GetSequenceNumber() < seqno) {
+      lhs = mid + 1;
+      resit = mid;
+    } else {
+      return mid->GetAppliedLogIndex();
+    }
+  }
+  assert(resit != list_.end());
+  return resit->GetAppliedLogIndex();
 }
 
 void LogIndexAndSequenceCollector::Update(LogIndex smallest_applied_log_index, SequenceNumber smallest_flush_seqno) {
@@ -96,11 +103,6 @@ void LogIndexAndSequenceCollector::Update(LogIndex smallest_applied_log_index, S
   if ((smallest_applied_log_index & step_length_mask_) == 0) {
     std::lock_guard<std::mutex> guard(mutex_);
     list_.emplace_back(smallest_applied_log_index, smallest_flush_seqno);
-
-    // if ((smallest_applied_log_index & skip_length_mask_) == 0) {
-    //   PairAndIterator s(list_.back(), std::prev(list_.end()));
-    //   skip_list_.emplace_back(s);
-    // }
   }
 }
 
