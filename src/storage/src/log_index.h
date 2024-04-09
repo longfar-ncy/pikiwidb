@@ -10,7 +10,9 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <list>
+#include <deque>
 #include <mutex>
 #include <optional>
 #include <string_view>
@@ -34,7 +36,7 @@ class LogIndexAndSequencePair {
   LogIndexAndSequencePair(LogIndex applied_log_index, SequenceNumber seqno)
       : applied_log_index_(applied_log_index), seqno_(seqno) {}
 
-  void SetAppliedLogIndex(int64_t applied_log_index) { applied_log_index_ = applied_log_index; }
+  void SetAppliedLogIndex(LogIndex applied_log_index) { applied_log_index_ = applied_log_index; }
   void SetSequenceNumber(SequenceNumber seqno) { seqno_ = seqno; }
 
   LogIndex GetAppliedLogIndex() const { return applied_log_index_; }
@@ -89,15 +91,14 @@ class LogIndexAndSequenceCollector {
   void Update(LogIndex smallest_applied_log_index, SequenceNumber smallest_flush_seqno);
 
   // purge out dated log index after memtable flushed.
-  void Purge(LogIndex smallest_applied_log_index, LogIndex smallest_flushed_log_index) {
-    std::lock_guard<std::mutex> guard(mutex_);
-    Purge(list_, smallest_applied_log_index, smallest_flushed_log_index);
-    // Purge(skip_list_, smallest_applied_log_index, smallest_flushed_log_index);
-  }
+  // void Purge(LogIndex smallest_applied_log_index, LogIndex smallest_flushed_log_index) {
+  //   std::lock_guard<std::mutex> guard(mutex_);
+  //   Purge(list_, smallest_applied_log_index, smallest_flushed_log_index);
+  //   // Purge(skip_list_, smallest_applied_log_index, smallest_flushed_log_index);
+  // }
   void Purge(LogIndex smallest_flushed_log_index) {
     std::lock_guard<std::mutex> guard(mutex_);
-    auto second = list_.begin();
-    second++;
+    auto second = std::next(list_.begin());
     while (list_.size() >= 2 && second->GetAppliedLogIndex() <= smallest_flushed_log_index) {
       list_.pop_front();
       ++second;
@@ -127,7 +128,7 @@ class LogIndexAndSequenceCollector {
   uint64_t step_length_mask_ = 0;
   uint64_t skip_length_mask_ = 0;
   mutable std::mutex mutex_;
-  std::list<LogIndexAndSequencePair> list_;
+  std::deque<LogIndexAndSequencePair> list_;
   // class PairAndIterator {
   //  public:
   //   PairAndIterator() {}
