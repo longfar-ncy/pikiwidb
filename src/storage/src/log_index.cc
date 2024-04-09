@@ -8,6 +8,8 @@
 #include "log_index.h"
 
 #include <cinttypes>
+#include <mutex>
+#include <shared_mutex>
 
 #include "redis.h"
 
@@ -69,7 +71,7 @@ LogIndex LogIndexAndSequenceCollector::FindAppliedLogIndex(SequenceNumber seqno)
     return 0;
   }
 
-  std::lock_guard<std::mutex> guard(mutex_);
+  std::shared_lock gd(mutex_);
   if (seqno < list_.front().GetSequenceNumber()) {
     return 0;
   }
@@ -101,8 +103,17 @@ void LogIndexAndSequenceCollector::Update(LogIndex smallest_applied_log_index, S
     It means that extra applied log may be applied again on start stage.
   */
   if ((smallest_applied_log_index & step_length_mask_) == 0) {
-    std::lock_guard<std::mutex> guard(mutex_);
+    std::unique_lock gd(mutex_);
     list_.emplace_back(smallest_applied_log_index, smallest_flush_seqno);
+  }
+}
+
+void LogIndexAndSequenceCollector::Purge(LogIndex smallest_flushed_log_index) {
+  std::unique_lock gd(mutex_);
+  auto second = std::next(list_.begin());
+  while (list_.size() >= 2 && second->GetAppliedLogIndex() <= smallest_flushed_log_index) {
+    list_.pop_front();
+    ++second;
   }
 }
 
@@ -120,4 +131,5 @@ auto LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(
   return max_flushed_log_index == -1 ? std::nullopt
                                      : std::make_optional<LogIndexAndSequencePair>(max_flushed_log_index, seqno);
 }
+
 }  // namespace storage

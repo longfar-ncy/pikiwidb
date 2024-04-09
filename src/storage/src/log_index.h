@@ -10,8 +10,8 @@
 #include <atomic>
 #include <deque>
 #include <functional>
-#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string_view>
 
 #include "fmt/core.h"
@@ -92,19 +92,12 @@ class LogIndexAndSequenceCollector {
   //   Purge(list_, smallest_applied_log_index, smallest_flushed_log_index);
   //   // Purge(skip_list_, smallest_applied_log_index, smallest_flushed_log_index);
   // }
-  void Purge(LogIndex smallest_flushed_log_index) {
-    std::lock_guard<std::mutex> guard(mutex_);
-    auto second = std::next(list_.begin());
-    while (list_.size() >= 2 && second->GetAppliedLogIndex() <= smallest_flushed_log_index) {
-      list_.pop_front();
-      ++second;
-    }
-  }
+  void Purge(LogIndex smallest_flushed_log_index);
 
  private:
   uint64_t step_length_mask_ = 0;
   uint64_t skip_length_mask_ = 0;
-  mutable std::mutex mutex_;
+  mutable std::shared_mutex mutex_;
   std::deque<LogIndexAndSequencePair> list_;
 };
 
