@@ -15,7 +15,7 @@
 
 namespace storage {
 
-rocksdb::Status storage::LogIndexOfCF::Init(Redis *db) {
+rocksdb::Status storage::LogIndexOfColumnFamilies::Init(Redis *db) {
   for (int i = 0; i < cf_.size(); i++) {
     rocksdb::TablePropertiesCollection collection;
     auto s = db->GetDB()->GetPropertiesOfAllTables(db->GetColumnFamilyHandles()[i], &collection);
@@ -29,6 +29,14 @@ rocksdb::Status storage::LogIndexOfCF::Init(Redis *db) {
     }
   }
   return Status::OK();
+}
+
+LogIndex LogIndexOfColumnFamilies::GetSmallestLogIndex(std::function<LogIndex(const LogIndexPair &)> &&f) const {
+  auto smallest_log_index = std::numeric_limits<LogIndex>::max();
+  for (const auto &it : cf_) {
+    smallest_log_index = std::min(f(it), smallest_log_index);
+  }
+  return smallest_log_index;
 }
 
 std::optional<LogIndexAndSequencePair> storage::LogIndexTablePropertiesCollector::ReadStatsFromTableProps(
@@ -45,14 +53,6 @@ std::optional<LogIndexAndSequencePair> storage::LogIndexTablePropertiesCollector
   assert(res == 2);
 
   return LogIndexAndSequencePair(applied_log_index, largest_seqno);
-}
-
-LogIndex LogIndexOfCF::GetSmallestLogIndex(std::function<LogIndex(const LogIndexPair &)> &&f) const {
-  auto smallest_log_index = std::numeric_limits<LogIndex>::max();
-  for (const auto &it : cf_) {
-    smallest_log_index = std::min(f(it), smallest_log_index);
-  }
-  return smallest_log_index;
 }
 
 LogIndex LogIndexAndSequenceCollector::FindAppliedLogIndex(SequenceNumber seqno) const {

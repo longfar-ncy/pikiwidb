@@ -43,7 +43,7 @@ class LogIndexAndSequencePair {
   SequenceNumber seqno_ = 0;
 };
 
-class LogIndexOfCF {
+class LogIndexOfColumnFamilies {
   struct LogIndexPair {
     std::atomic<LogIndex> applied_log_index = 0;  // newest record in memtable.
     std::atomic<LogIndex> flushed_log_index = 0;  // newest record in sst file.
@@ -63,6 +63,7 @@ class LogIndexOfCF {
     cf_[cf_id].flushed_log_index = std::max(cf_[cf_id].flushed_log_index.load(), log_index);
   }
 
+  // If cur log index has been applied, return true and skip it; otherwise, update.
   bool IsAppliedOrUpdate(size_t cf_id, LogIndex cur_log_index) {
     if (cur_log_index <= cf_[cf_id].applied_log_index.load()) {
       return true;
@@ -157,7 +158,7 @@ class LogIndexTablePropertiesCollectorFactory : public rocksdb::TablePropertiesC
 
 class LogIndexAndSequenceCollectorPurger : public rocksdb::EventListener {
  public:
-  explicit LogIndexAndSequenceCollectorPurger(LogIndexAndSequenceCollector *collector, LogIndexOfCF *cf)
+  explicit LogIndexAndSequenceCollectorPurger(LogIndexAndSequenceCollector *collector, LogIndexOfColumnFamilies *cf)
       : collector_(collector), cf_(cf) {}
 
   void OnFlushCompleted(rocksdb::DB *db, const rocksdb::FlushJobInfo &flush_job_info) override {
@@ -168,7 +169,7 @@ class LogIndexAndSequenceCollectorPurger : public rocksdb::EventListener {
 
  private:
   LogIndexAndSequenceCollector *collector_ = nullptr;
-  LogIndexOfCF *cf_ = nullptr;
+  LogIndexOfColumnFamilies *cf_ = nullptr;
 };
 
 }  // namespace storage

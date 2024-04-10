@@ -372,7 +372,7 @@ class Redis {
   uint32_t raft_timeout_s_ = 10;
   AppendLogFunction append_log_function_;
   LogIndexAndSequenceCollector log_index_collector_;
-  LogIndexOfCF log_index_of_all_cfs_;
+  LogIndexOfColumnFamilies log_index_of_all_cfs_;
   bool is_starting_{true};
 
   Status UpdateSpecificKeyStatistics(const DataType& dtype, const std::string& key, uint64_t count);
