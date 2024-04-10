@@ -44,8 +44,7 @@ std::optional<LogIndexAndSequencePair> storage::LogIndexTablePropertiesCollector
   auto res = sscanf(s.c_str(), "%" PRIi64 "/%" PRIu64 "", &applied_log_index, &largest_seqno);
   assert(res == 2);
 
-  LogIndexAndSequencePair p(applied_log_index, largest_seqno);
-  return p;
+  return LogIndexAndSequencePair(applied_log_index, largest_seqno);
 }
 
 LogIndex LogIndexOfCF::GetSmallestLogIndex(std::function<LogIndex(const LogIndexPair &)> &&f) const {

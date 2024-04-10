@@ -164,8 +164,8 @@ class LogIndexAndSequenceCollectorPurger : public rocksdb::EventListener {
   }
 
  private:
-  LogIndexAndSequenceCollector *collector_;
-  LogIndexOfCF *cf_;
+  LogIndexAndSequenceCollector *collector_ = nullptr;
+  LogIndexOfCF *cf_ = nullptr;
 };
 
 }  // namespace storage
