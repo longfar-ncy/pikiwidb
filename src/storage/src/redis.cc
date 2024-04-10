@@ -142,6 +142,7 @@ Status Redis::Open(const StorageOptions& storage_options, const std::string& db_
   zset_score_cf_ops.table_factory.reset(rocksdb::NewBlockBasedTableFactory(zset_score_cf_table_ops));
 
   if (append_log_function_) {
+    // Add log index table property collector factory to each column family
     ADD_TABLE_PROPERTY_COLLECTOR_FACTORY(string);
     ADD_TABLE_PROPERTY_COLLECTOR_FACTORY(hash_meta);
     ADD_TABLE_PROPERTY_COLLECTOR_FACTORY(hash_data);
@@ -152,6 +153,12 @@ Status Redis::Open(const StorageOptions& storage_options, const std::string& db_
     ADD_TABLE_PROPERTY_COLLECTOR_FACTORY(zset_meta);
     ADD_TABLE_PROPERTY_COLLECTOR_FACTORY(zset_data);
     ADD_TABLE_PROPERTY_COLLECTOR_FACTORY(zset_score);
+
+    // Add a listener on flush to purge log index collector
+    db_ops.listeners.push_back(
+        std::make_shared<LogIndexAndSequenceCollectorPurger>(&log_index_collector_, &log_index_of_all_cfs_));
+
+    // TODO(longfar): Add snapshot caller
   }
 
   std::vector<rocksdb::ColumnFamilyDescriptor> column_families;

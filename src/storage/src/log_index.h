@@ -87,11 +87,6 @@ class LogIndexAndSequenceCollector {
   void Update(LogIndex smallest_applied_log_index, SequenceNumber smallest_flush_seqno);
 
   // purge out dated log index after memtable flushed.
-  // void Purge(LogIndex smallest_applied_log_index, LogIndex smallest_flushed_log_index) {
-  //   std::lock_guard<std::mutex> guard(mutex_);
-  //   Purge(list_, smallest_applied_log_index, smallest_flushed_log_index);
-  //   // Purge(skip_list_, smallest_applied_log_index, smallest_flushed_log_index);
-  // }
   void Purge(LogIndex smallest_flushed_log_index);
 
  private:
@@ -139,7 +134,6 @@ class LogIndexTablePropertiesCollector : public rocksdb::TablePropertiesCollecto
   const LogIndexAndSequenceCollector &collector_;
   SequenceNumber largest_seqno_ = 0;
   mutable LogIndex cache_{-1};
-  // SequenceNumber smallest_seqno_ = 0;
 };
 
 class LogIndexTablePropertiesCollectorFactory : public rocksdb::TablePropertiesCollectorFactory {
@@ -165,10 +159,6 @@ class LogIndexAndSequenceCollectorPurger : public rocksdb::EventListener {
 
   void OnFlushCompleted(rocksdb::DB *db, const rocksdb::FlushJobInfo &flush_job_info) override {
     cf_->SetFlushedLogIndex(flush_job_info.cf_id, collector_->FindAppliedLogIndex(flush_job_info.largest_seqno));
-    // auto smallest_applied_log_index = cf_->GetSmallestAppliedLogIndex();
-    // auto smallest_flushed_log_index = cf_->GetSmallestFlushedLogIndex();
-    // collector_->Purge(smallest_applied_log_index, smallest_flushed_log_index);
-
     auto smallest_flushed_log_index = cf_->GetSmallestFlushedLogIndex();
     collector_->Purge(smallest_flushed_log_index);
   }

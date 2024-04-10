@@ -22,16 +22,6 @@ rocksdb::Status storage::LogIndexOfCF::Init(Redis *db) {
     if (!s.ok()) {
       return s;
     }
-    // LogIndex max_applied_log_index{};
-    // LogIndex max_flushed_log_index{};
-    // for (const auto &[_, props] : collection) {
-    //   assert(props->column_family_id == i);
-    //   auto res = LogIndexTablePropertiesCollector::ReadStatsFromTableProps(props);
-    //   if (res.has_value()) {
-    //     max_applied_log_index = std::max(max_applied_log_index, res->GetAppliedLogIndex());
-    //     max_flushed_log_index = std::max(max_flushed_log_index, res->GetAppliedLogIndex());
-    //   }
-    // }
     auto res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(collection);
     if (res.has_value()) {
       cf_[i].applied_log_index.store(res->GetAppliedLogIndex());
