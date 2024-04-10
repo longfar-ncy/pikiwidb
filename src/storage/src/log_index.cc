@@ -57,6 +57,9 @@ LogIndex LogIndexOfCF::GetSmallestLogIndex(std::function<LogIndex(const LogIndex
 }
 
 LogIndex LogIndexAndSequenceCollector::FindAppliedLogIndex(SequenceNumber seqno) const {
+  if (seqno == 0) {  // the seqno will be 0 when executing compaction
+    return 0;
+  }
   std::shared_lock gd(mutex_);
   if (list_.empty() || seqno < list_.front().GetSequenceNumber()) {
     return 0;
