@@ -22,5 +22,6 @@ FOREACH (TEST_SOURCE ${TEST_SOURCES})
     PRIVATE gtest
     PRIVATE gtest_main
     PRIVATE fmt
+    ${LIB}
   )
 ENDFOREACH()
