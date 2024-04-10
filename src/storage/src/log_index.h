@@ -63,10 +63,13 @@ class LogIndexOfCF {
     cf_[cf_id].flushed_log_index = std::max(cf_[cf_id].flushed_log_index.load(), log_index);
   }
 
-  // bool CheckIfApplyAndSet(size_t cf_id, LogIndex cur_log_index) {
-  //   cf_[cf_id].applied_log_index = std::max(cf_[cf_id].applied_log_index.load(), cur_log_index);
-  //   return cur_log_index == cf_[cf_id].applied_log_index.load();
-  // }
+  bool IsAppliedOrUpdate(size_t cf_id, LogIndex cur_log_index) {
+    if (cur_log_index <= cf_[cf_id].applied_log_index.load()) {
+      return true;
+    }
+    cf_[cf_id].applied_log_index.store(cur_log_index);
+    return false;
+  }
 
  private:
   LogIndex GetSmallestLogIndex(std::function<LogIndex(const LogIndexPair &)> &&f) const;

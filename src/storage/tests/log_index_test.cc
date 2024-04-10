@@ -32,7 +32,7 @@ class LogIniter {
  public:
   LogIniter() {
     logger::Init("./log_index_test.log");
-    spdlog::set_level(spdlog::level::err);
+    spdlog::set_level(spdlog::level::info);
   }
 };
 static LogIniter initer;

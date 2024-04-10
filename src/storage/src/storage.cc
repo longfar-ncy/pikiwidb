@@ -2263,7 +2263,15 @@ Status Storage::OnBinlogWrite(const pikiwidb::Binlog& log, LogIndex log_idx) {
   auto& inst = insts_[log.slot_idx()];
 
   rocksdb::WriteBatch batch;
+  bool is_finished_start = true;
   for (const auto& entry : log.entries()) {
+    // If the log has been applied, skip it. Otherwise, update the logidx of the column family.
+    if (inst->IsRestarting() && inst->IsAppliedOrUpdate(entry.cf_idx(), log_idx)) {
+      WARN("Log {} has been applied", log_idx);
+      is_finished_start = false;
+      continue;
+    }
+
     switch (entry.op_type()) {
       case pikiwidb::OperateType::kPut: {
         assert(entry.has_value());
@@ -2278,6 +2286,10 @@ Status Storage::OnBinlogWrite(const pikiwidb::Binlog& log, LogIndex log_idx) {
         ERROR(msg);
         return Status::Incomplete(msg);
     }
+  }
+  if (inst->IsRestarting() && is_finished_start) {
+    INFO("Redis {} finished start phase", inst->GetIndex());
+    inst->FinishStartPhase();
   }
   auto first_seqno = inst->GetDB()->GetLatestSequenceNumber() + 1;
   auto s = inst->GetDB()->Write(inst->GetWriteOptions(), &batch);

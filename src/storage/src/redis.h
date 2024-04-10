@@ -104,6 +104,11 @@ class Redis {
                               const ColumnFamilyType& type = kMetaAndData);
 
   virtual Status GetProperty(const std::string& property, uint64_t* out);
+  bool IsAppliedOrUpdate(size_t cf_idx, LogIndex logidx) {
+    return log_index_of_all_cfs_.IsAppliedOrUpdate(cf_idx, logidx);
+  }
+  bool IsRestarting() const { return is_starting_; }
+  void FinishStartPhase() { is_starting_ = false; }
 
   Status ScanKeyNum(std::vector<KeyInfo>* key_info);
   Status ScanStringsKeyNum(KeyInfo* key_info);
@@ -368,6 +373,7 @@ class Redis {
   AppendLogFunction append_log_function_;
   LogIndexAndSequenceCollector log_index_collector_;
   LogIndexOfCF log_index_of_all_cfs_;
+  bool is_starting_{true};
 
   Status UpdateSpecificKeyStatistics(const DataType& dtype, const std::string& key, uint64_t count);
   Status UpdateSpecificKeyDuration(const DataType& dtype, const std::string& key, uint64_t duration);
