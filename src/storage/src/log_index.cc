@@ -57,12 +57,8 @@ LogIndex LogIndexOfCF::GetSmallestLogIndex(std::function<LogIndex(const LogIndex
 }
 
 LogIndex LogIndexAndSequenceCollector::FindAppliedLogIndex(SequenceNumber seqno) const {
-  if (list_.empty()) {
-    return 0;
-  }
-
   std::shared_lock gd(mutex_);
-  if (seqno < list_.front().GetSequenceNumber()) {
+  if (list_.empty() || seqno < list_.front().GetSequenceNumber()) {
     return 0;
   }
   if (seqno >= list_.back().GetSequenceNumber()) {
@@ -93,13 +89,17 @@ void LogIndexAndSequenceCollector::Update(LogIndex smallest_applied_log_index, S
     It means that extra applied log may be applied again on start stage.
   */
   if ((smallest_applied_log_index & step_length_mask_) == 0) {
-    std::unique_lock gd(mutex_);
+    std::lock_guard gd(mutex_);
     list_.emplace_back(smallest_applied_log_index, smallest_flush_seqno);
   }
 }
 
+// TODO(longfar): find the iterator which should be deleted and erase from begin to the iterator
 void LogIndexAndSequenceCollector::Purge(LogIndex smallest_flushed_log_index) {
-  std::unique_lock gd(mutex_);
+  std::lock_guard gd(mutex_);
+  if (list_.size() < 2) {
+    return;
+  }
   auto second = std::next(list_.begin());
   while (list_.size() >= 2 && second->GetAppliedLogIndex() <= smallest_flushed_log_index) {
     list_.pop_front();
