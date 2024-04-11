@@ -90,13 +90,20 @@ void LogIndexAndSequenceCollector::Update(LogIndex smallest_applied_log_index, S
 }
 
 // TODO(longfar): find the iterator which should be deleted and erase from begin to the iterator
-void LogIndexAndSequenceCollector::Purge(LogIndex smallest_flushed_log_index) {
+void LogIndexAndSequenceCollector::Purge(LogIndex smallest_applied_log_index) {
+  /*
+   * The reason that we use smallest applied log index of all column families instead of smallest flushed log index is
+   * that the log index corresponding to the largest sequence number in the next flush must be greater than or equal to
+   * the smallest applied log index at this moment.
+   * So we just need to make sure that there is an element in the queue which is less than or equal to the smallest
+   * applied log index to ensure that we can find a correct log index while doing next flush.
+   */
   std::lock_guard gd(mutex_);
   if (list_.size() < 2) {
     return;
   }
   auto second = std::next(list_.begin());
-  while (list_.size() >= 2 && second->GetAppliedLogIndex() <= smallest_flushed_log_index) {
+  while (list_.size() >= 2 && second->GetAppliedLogIndex() <= smallest_applied_log_index) {
     list_.pop_front();
     ++second;
   }

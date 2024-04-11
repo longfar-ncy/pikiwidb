@@ -63,14 +63,10 @@ class LogIndexOfColumnFamilies {
     cf_[cf_id].flushed_log_index = std::max(cf_[cf_id].flushed_log_index.load(), log_index);
   }
 
-  // If cur log index has been applied, return true and skip it; otherwise, update.
-  bool IsAppliedOrUpdate(size_t cf_id, LogIndex cur_log_index) {
-    if (cur_log_index <= cf_[cf_id].applied_log_index.load()) {
-      return true;
-    }
-    cf_[cf_id].applied_log_index.store(cur_log_index);
-    return false;
+  bool IsApplied(size_t cf_id, LogIndex cur_log_index) const {
+    return cur_log_index < cf_[cf_id].applied_log_index.load();
   }
+  void Update(size_t cf_id, LogIndex cur_log_index) { cf_[cf_id].applied_log_index.store(cur_log_index); }
 
  private:
   LogIndex GetSmallestLogIndex(std::function<LogIndex(const LogIndexPair &)> &&f) const;
@@ -91,7 +87,7 @@ class LogIndexAndSequenceCollector {
   void Update(LogIndex smallest_applied_log_index, SequenceNumber smallest_flush_seqno);
 
   // purge out dated log index after memtable flushed.
-  void Purge(LogIndex smallest_flushed_log_index);
+  void Purge(LogIndex smallest_applied_log_index);
 
  private:
   uint64_t step_length_mask_ = 0;
@@ -163,8 +159,8 @@ class LogIndexAndSequenceCollectorPurger : public rocksdb::EventListener {
 
   void OnFlushCompleted(rocksdb::DB *db, const rocksdb::FlushJobInfo &flush_job_info) override {
     cf_->SetFlushedLogIndex(flush_job_info.cf_id, collector_->FindAppliedLogIndex(flush_job_info.largest_seqno));
-    auto smallest_flushed_log_index = cf_->GetSmallestFlushedLogIndex();
-    collector_->Purge(smallest_flushed_log_index);
+    auto log_idx = cf_->GetSmallestAppliedLogIndex();
+    collector_->Purge(log_idx);
   }
 
  private:

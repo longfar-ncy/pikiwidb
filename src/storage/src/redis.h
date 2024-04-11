@@ -104,8 +104,9 @@ class Redis {
                               const ColumnFamilyType& type = kMetaAndData);
 
   virtual Status GetProperty(const std::string& property, uint64_t* out);
-  bool IsAppliedOrUpdate(size_t cf_idx, LogIndex logidx) {
-    return log_index_of_all_cfs_.IsAppliedOrUpdate(cf_idx, logidx);
+  bool IsApplied(size_t cf_idx, LogIndex logidx) const { return log_index_of_all_cfs_.IsApplied(cf_idx, logidx); }
+  void UpdateAppliedLogIndexOfColumnFamily(size_t cf_idx, LogIndex logidx) {
+    log_index_of_all_cfs_.Update(cf_idx, logidx);
   }
   bool IsRestarting() const { return is_starting_; }
   void FinishStartPhase() { is_starting_ = false; }
