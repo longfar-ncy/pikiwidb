@@ -9,7 +9,6 @@
 
 #include <atomic>
 #include <deque>
-#include <functional>
 #include <optional>
 #include <shared_mutex>
 #include <string_view>
@@ -44,33 +43,24 @@ class LogIndexAndSequencePair {
 };
 
 class LogIndexOfColumnFamilies {
-  struct LogIndexPair {
-    std::atomic<LogIndex> applied_log_index = 0;  // newest record in memtable.
-    std::atomic<LogIndex> flushed_log_index = 0;  // newest record in sst file.
-  };
-
  public:
   // Read the largest log index of each column family from all sst files
   rocksdb::Status Init(Redis *db);
 
   LogIndex GetSmallestAppliedLogIndex() const {
-    return GetSmallestLogIndex([](const LogIndexPair &p) { return p.applied_log_index.load(); });
-  }
-  LogIndex GetSmallestFlushedLogIndex() const {
-    return GetSmallestLogIndex([](const LogIndexPair &p) { return p.flushed_log_index.load(); });
-  }
-  void SetFlushedLogIndex(size_t cf_id, LogIndex log_index) {
-    cf_[cf_id].flushed_log_index = std::max(cf_[cf_id].flushed_log_index.load(), log_index);
+    auto res = std::numeric_limits<LogIndex>::max();
+    std::for_each(newest_applied_logidx_of_cfs.begin(), newest_applied_logidx_of_cfs.end(),
+                  [&res](const std::atomic<LogIndex> &idx) { res = std::min(res, idx.load()); });
+    return res;
   }
 
   bool IsApplied(size_t cf_id, LogIndex cur_log_index) const {
-    return cur_log_index < cf_[cf_id].applied_log_index.load();
+    return cur_log_index < newest_applied_logidx_of_cfs[cf_id].load();
   }
-  void Update(size_t cf_id, LogIndex cur_log_index) { cf_[cf_id].applied_log_index.store(cur_log_index); }
+  void Update(size_t cf_id, LogIndex cur_log_index) { newest_applied_logidx_of_cfs[cf_id].store(cur_log_index); }
 
  private:
-  LogIndex GetSmallestLogIndex(std::function<LogIndex(const LogIndexPair &)> &&f) const;
-  std::array<LogIndexPair, kColumnFamilyNum> cf_;
+  std::array<std::atomic<LogIndex>, kColumnFamilyNum> newest_applied_logidx_of_cfs;
 };
 
 class LogIndexAndSequenceCollector {
@@ -158,7 +148,6 @@ class LogIndexAndSequenceCollectorPurger : public rocksdb::EventListener {
       : collector_(collector), cf_(cf) {}
 
   void OnFlushCompleted(rocksdb::DB *db, const rocksdb::FlushJobInfo &flush_job_info) override {
-    cf_->SetFlushedLogIndex(flush_job_info.cf_id, collector_->FindAppliedLogIndex(flush_job_info.largest_seqno));
     auto log_idx = cf_->GetSmallestAppliedLogIndex();
     collector_->Purge(log_idx);
   }

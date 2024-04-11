@@ -17,7 +17,7 @@
 namespace storage {
 
 rocksdb::Status storage::LogIndexOfColumnFamilies::Init(Redis *db) {
-  for (int i = 0; i < cf_.size(); i++) {
+  for (int i = 0; i < kColumnFamilyNum; i++) {
     rocksdb::TablePropertiesCollection collection;
     auto s = db->GetDB()->GetPropertiesOfAllTables(db->GetColumnFamilyHandles()[i], &collection);
     if (!s.ok()) {
@@ -25,19 +25,10 @@ rocksdb::Status storage::LogIndexOfColumnFamilies::Init(Redis *db) {
     }
     auto res = LogIndexTablePropertiesCollector::GetLargestLogIndexFromTableCollection(collection);
     if (res.has_value()) {
-      cf_[i].applied_log_index.store(res->GetAppliedLogIndex());
-      cf_[i].flushed_log_index.store(res->GetAppliedLogIndex());
+      newest_applied_logidx_of_cfs[i].store(res->GetAppliedLogIndex());
     }
   }
   return Status::OK();
-}
-
-LogIndex LogIndexOfColumnFamilies::GetSmallestLogIndex(std::function<LogIndex(const LogIndexPair &)> &&f) const {
-  auto smallest_log_index = std::numeric_limits<LogIndex>::max();
-  for (const auto &it : cf_) {
-    smallest_log_index = std::min(f(it), smallest_log_index);
-  }
-  return smallest_log_index;
 }
 
 std::optional<LogIndexAndSequencePair> storage::LogIndexTablePropertiesCollector::ReadStatsFromTableProps(
