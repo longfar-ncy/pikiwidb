@@ -2293,9 +2293,11 @@ Status Storage::OnBinlogWrite(const pikiwidb::Binlog& log, LogIndex log_idx) {
   }
   auto first_seqno = inst->GetDB()->GetLatestSequenceNumber() + 1;
   auto s = inst->GetDB()->Write(inst->GetWriteOptions(), &batch);
-  if (s.ok()) {
-    inst->UpdateLogIndex(log_idx, first_seqno);
+  if (!s.ok()) {
+    // TODO(longfar): What we should do if the write operation failed ???
+    return s;
   }
+  inst->UpdateLogIndex(log_idx, first_seqno);
   return s;
 }
 
