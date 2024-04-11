@@ -71,8 +71,8 @@ struct StorageOptions {
   size_t small_compaction_threshold = 5000;
   size_t small_compaction_duration_threshold = 10000;
   size_t db_instance_num = 3;  // default = 3
-  int db_id;
-  AppendLogFunction append_log_function;
+  int db_id = 0;
+  AppendLogFunction append_log_function = nullptr;
   uint32_t raft_timeout_s = std::numeric_limits<uint32_t>::max();
   Status ResetOptions(const OptionType& option_type, const std::unordered_map<std::string, std::string>& options_map);
 };
