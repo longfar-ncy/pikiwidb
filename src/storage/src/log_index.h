@@ -75,10 +75,7 @@ class LogIndexOfColumnFamilies {
 
 class LogIndexAndSequenceCollector {
  public:
-  explicit LogIndexAndSequenceCollector(uint8_t step_length_bit = 0, uint8_t extra_skip_length_bit = 8) {
-    step_length_mask_ = (1 << step_length_bit) - 1;
-    skip_length_mask_ = (1 << (step_length_bit + extra_skip_length_bit)) - 1;
-  }
+  explicit LogIndexAndSequenceCollector(uint8_t step_length_bit = 0) { step_length_mask_ = (1 << step_length_bit) - 1; }
 
   // find the index of log which contain seqno or before it
   LogIndex FindAppliedLogIndex(SequenceNumber seqno) const;
@@ -91,7 +88,6 @@ class LogIndexAndSequenceCollector {
 
  private:
   uint64_t step_length_mask_ = 0;
-  uint64_t skip_length_mask_ = 0;
   mutable std::shared_mutex mutex_;
   std::deque<LogIndexAndSequencePair> list_;
 };
