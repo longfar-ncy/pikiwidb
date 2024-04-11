@@ -68,14 +68,14 @@ LogIndex LogIndexAndSequenceCollector::FindAppliedLogIndex(SequenceNumber seqno)
     return list_.back().GetAppliedLogIndex();
   }
 
-  auto resit = std::lower_bound(
+  auto it = std::lower_bound(
       list_.begin(), list_.end(), seqno,
-      [](const LogIndexAndSequencePair &p, SequenceNumber tar) { return p.GetSequenceNumber() < tar; });
-  if (resit->GetSequenceNumber() > seqno) {
-    --resit;
+      [](const LogIndexAndSequencePair &p, SequenceNumber tar) { return p.GetSequenceNumber() <= tar; });
+  if (it->GetSequenceNumber() > seqno) {
+    --it;
   }
-  assert(resit->GetSequenceNumber() <= seqno);
-  return resit->GetAppliedLogIndex();
+  assert(it->GetSequenceNumber() <= seqno);
+  return it->GetAppliedLogIndex();
 }
 
 void LogIndexAndSequenceCollector::Update(LogIndex smallest_applied_log_index, SequenceNumber smallest_flush_seqno) {
