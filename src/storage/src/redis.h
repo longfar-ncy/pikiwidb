@@ -109,7 +109,7 @@ class Redis {
     log_index_of_all_cfs_.Update(cf_idx, logidx);
   }
   bool IsRestarting() const { return is_starting_; }
-  void FinishStartPhase() { is_starting_ = false; }
+  void StartingPhaseEnd() { is_starting_ = false; }
 
   Status ScanKeyNum(std::vector<KeyInfo>* key_info);
   Status ScanStringsKeyNum(KeyInfo* key_info);

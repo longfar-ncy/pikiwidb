@@ -2265,8 +2265,9 @@ Status Storage::OnBinlogWrite(const pikiwidb::Binlog& log, LogIndex log_idx) {
   rocksdb::WriteBatch batch;
   bool is_finished_start = true;
   for (const auto& entry : log.entries()) {
-    if (inst->IsRestarting() && inst->IsApplied(entry.cf_idx(), log_idx)) {
-      // If the log has been applied, skip it.
+    if (inst->IsRestarting() && inst->IsApplied(entry.cf_idx(), log_idx)) [[unlikely]] {
+      // If the starting phase is over, the log must not have been applied
+      // If the starting phase is not over and the log has been applied, skip it.
       WARN("Log {} has been applied", log_idx);
       is_finished_start = false;
       continue;
@@ -2289,9 +2290,9 @@ Status Storage::OnBinlogWrite(const pikiwidb::Binlog& log, LogIndex log_idx) {
 
     inst->UpdateAppliedLogIndexOfColumnFamily(entry.cf_idx(), log_idx);
   }
-  if (inst->IsRestarting() && is_finished_start) {
+  if (inst->IsRestarting() && is_finished_start) [[unlikely]] {
     INFO("Redis {} finished start phase", inst->GetIndex());
-    inst->FinishStartPhase();
+    inst->StartingPhaseEnd();
   }
   auto first_seqno = inst->GetDB()->GetLatestSequenceNumber() + 1;
   auto s = inst->GetDB()->Write(inst->GetWriteOptions(), &batch);
