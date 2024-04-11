@@ -1,3 +1,8 @@
+# Copyright (c) 2023-present, Qihoo, Inc.  All rights reserved.
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree. An additional grant
+# of patent rights can be found in the PATENTS file in the same directory.
+
 INCLUDE(GoogleTest)
 
 FILE(GLOB_RECURSE TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*test.cc")
@@ -10,7 +15,6 @@ FOREACH (TEST_SOURCE ${TEST_SOURCES})
 
   TARGET_INCLUDE_DIRECTORIES(${TEST_NAME}
     PUBLIC storage
-    PUBLIC praft
     PRIVATE ${rocksdb_SOURCE_DIR}
     PRIVATE ${rocksdb_SOURCE_DIR}/include
     PRIVATE ${BRAFT_INCLUDE_DIR}
@@ -18,7 +22,6 @@ FOREACH (TEST_SOURCE ${TEST_SOURCES})
   )
   TARGET_LINK_LIBRARIES(${TEST_NAME} 
     PUBLIC storage
-    PUBLIC praft
     PRIVATE gtest
     PRIVATE gtest_main
     PRIVATE fmt
