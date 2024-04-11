@@ -7,6 +7,7 @@
 
 #include "log_index.h"
 
+#include <algorithm>
 #include <cinttypes>
 #include <mutex>
 #include <shared_mutex>
@@ -67,21 +68,13 @@ LogIndex LogIndexAndSequenceCollector::FindAppliedLogIndex(SequenceNumber seqno)
     return list_.back().GetAppliedLogIndex();
   }
 
-  auto lhs = list_.begin();
-  auto rhs = list_.end() - 1;
-  auto resit = list_.end();
-  while (lhs < rhs) {
-    auto mid = lhs + (rhs - lhs) / 2;
-    if (mid->GetSequenceNumber() > seqno) {
-      rhs = mid;
-    } else if (mid->GetSequenceNumber() < seqno) {
-      lhs = mid + 1;
-      resit = mid;
-    } else {
-      return mid->GetAppliedLogIndex();
-    }
+  auto resit = std::lower_bound(
+      list_.begin(), list_.end(), seqno,
+      [](const LogIndexAndSequencePair &p, SequenceNumber tar) { return p.GetSequenceNumber() < tar; });
+  if (resit->GetSequenceNumber() > seqno) {
+    --resit;
   }
-  assert(resit != list_.end());
+  assert(resit->GetSequenceNumber() <= seqno);
   return resit->GetAppliedLogIndex();
 }
 
