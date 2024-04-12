@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include "checkpoint_manager.h"
 #include "storage/storage.h"
 
 namespace pikiwidb {
