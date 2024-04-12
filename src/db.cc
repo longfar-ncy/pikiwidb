@@ -6,9 +6,12 @@
  */
 
 #include "db.h"
+
+#include "praft/praft.h"
+#include "pstd/log.h"
+
 #include "checkpoint_manager.h"
 #include "config.h"
-#include "log.h"
 
 extern pikiwidb::PConfig g_config;
 
