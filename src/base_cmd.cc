@@ -6,8 +6,14 @@
  */
 
 #include "base_cmd.h"
-#include "common.h"
-#include "log.h"
+
+#include "client.h"
+#include "fmt/core.h"
+
+#include "praft/praft.h"
+#include "pstd/log.h"
+
+#include "config.h"
 #include "pikiwidb.h"
 
 namespace pikiwidb {
@@ -35,6 +41,16 @@ void BaseCmd::Execute(PClient* client) {
   auto dbIndex = client->GetCurrentDB();
   if (!HasFlag(kCmdFlagsExclusive)) {
     PSTORE.GetBackend(dbIndex)->LockShared();
+  }
+
+  // Should return redirect message to client when a follower received a write command in Raft mode
+  if (g_config.use_raft && HasFlag(kCmdFlagsWrite)) {
+    if (!PRAFT.IsInitialized()) {
+      return client->SetRes(CmdRes::kErrOther, "Node has not initialized");
+    }
+    if (!PRAFT.IsLeader()) {
+      return client->SetRes(CmdRes::kErrOther, fmt::format("MOVED {}", PRAFT.GetLeaderAddress()));
+    }
   }
 
   if (!DoInitial(client)) {

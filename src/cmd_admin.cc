@@ -6,7 +6,6 @@
  */
 
 #include "cmd_admin.h"
-#include "db.h"
 
 #include "braft/raft.h"
 #include "rocksdb/version.h"
@@ -16,6 +15,7 @@
 #include "pstd/env.h"
 
 #include "store.h"
+#include "db.h"
 
 namespace pikiwidb {
 
@@ -130,11 +130,11 @@ void ShutdownCmd::DoCmd(PClient* client) {
 }
 
 PingCmd::PingCmd(const std::string& name, int16_t arity)
-    : BaseCmd(name, arity, kCmdFlagsWrite, kAclCategoryWrite | kAclCategoryList) {}
+    : BaseCmd(name, arity, kCmdFlagsFast, kAclCategoryFast) {}
 
 bool PingCmd::DoInitial(PClient* client) { return true; }
 
-void PingCmd::DoCmd(PClient* client) { client->SetRes(CmdRes::kPong, "PONG"); }
+void PingCmd::DoCmd(PClient* client) { client->SetRes(CmdRes::kPong); }
 
 InfoCmd::InfoCmd(const std::string& name, int16_t arity)
     : BaseCmd(name, arity, kCmdFlagsAdmin | kCmdFlagsReadonly, kAclCategoryAdmin) {}
