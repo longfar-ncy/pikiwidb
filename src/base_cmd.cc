@@ -7,12 +7,12 @@
 
 #include "base_cmd.h"
 
-#include "client.h"
 #include "fmt/core.h"
 
 #include "praft/praft.h"
 #include "pstd/log.h"
 
+#include "client.h"
 #include "config.h"
 #include "pikiwidb.h"
 
