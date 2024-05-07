@@ -14,8 +14,8 @@
 #include "praft/praft.h"
 #include "pstd/env.h"
 
-#include "store.h"
 #include "db.h"
+#include "store.h"
 
 namespace pikiwidb {
 
@@ -129,8 +129,7 @@ void ShutdownCmd::DoCmd(PClient* client) {
   client->SetRes(CmdRes::kNone);
 }
 
-PingCmd::PingCmd(const std::string& name, int16_t arity)
-    : BaseCmd(name, arity, kCmdFlagsFast, kAclCategoryFast) {}
+PingCmd::PingCmd(const std::string& name, int16_t arity) : BaseCmd(name, arity, kCmdFlagsFast, kAclCategoryFast) {}
 
 bool PingCmd::DoInitial(PClient* client) { return true; }
 
