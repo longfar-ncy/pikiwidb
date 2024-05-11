@@ -6,6 +6,8 @@
  */
 
 #include "base_cmd.h"
+#include <atomic>
+#include <utility>
 
 #include "fmt/core.h"
 
@@ -44,7 +46,7 @@ void BaseCmd::Execute(PClient* client) {
   }
 
   // Should return redirect message to client when a follower received a write command in Raft mode
-  if (g_config.use_raft && HasFlag(kCmdFlagsWrite)) {
+  if (g_config.use_raft.load(std::memory_order_relaxed) && HasFlag(kCmdFlagsWrite)) {
     if (!PRAFT.IsInitialized()) {
       return client->SetRes(CmdRes::kErrOther, "Node has not initialized");
     }
