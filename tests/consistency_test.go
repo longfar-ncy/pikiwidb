@@ -153,6 +153,26 @@ var _ = Describe("Consistency", Ordered, func() {
 		}
 	})
 
+	It("HMSet Consistency Test", func() {
+		const testKey = "HashConsistencyTest"
+		testValue := map[string]string{
+			"fa": "va",
+			"fb": "vb",
+			"fc": "vc",
+		}
+    // write on leader
+    hmset, err := leader.HMSet(ctx, testKey, testValue).Result()
+    Expect(err).NotTo(HaveOccurred())
+    Expect(hmset).To(BeTrue())
+
+    // read check
+    readChecker(func(c *redis.Client) {
+      getall, err := c.HGetAll(ctx, testKey).Result()
+      Expect(err).NotTo(HaveOccurred())
+      Expect(getall).To(Equal(testValue))
+    })
+	})
+
 	It("HIncrby Consistency Test", func() {
 		const testKey = "HashConsistencyTest"
 		const testField = "HIncrbyField"

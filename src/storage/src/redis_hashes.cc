@@ -553,7 +553,7 @@ Status Redis::HMSet(const Slice& key, const std::vector<FieldValue>& fvs) {
     }
   }
 
-  rocksdb::WriteBatch batch;
+  auto batch = Batch::CreateBatch(this);
   ScopeRecordLock l(lock_mgr_, key);
 
   uint64_t version = 0;
@@ -570,11 +570,11 @@ Status Redis::HMSet(const Slice& key, const std::vector<FieldValue>& fvs) {
         return Status::InvalidArgument("hash size overflow");
       }
       parsed_hashes_meta_value.SetCount(static_cast<int32_t>(filtered_fvs.size()));
-      batch.Put(handles_[kHashesMetaCF], base_meta_key.Encode(), meta_value);
+      batch->Put(kHashesMetaCF, base_meta_key.Encode(), meta_value);
       for (const auto& fv : filtered_fvs) {
         HashesDataKey hashes_data_key(key, version, fv.field);
         BaseDataValue inter_value(fv.value);
-        batch.Put(handles_[kHashesDataCF], hashes_data_key.Encode(), inter_value.Encode());
+        batch->Put(kHashesDataCF, hashes_data_key.Encode(), inter_value.Encode());
       }
     } else {
       int32_t count = 0;
@@ -586,10 +586,10 @@ Status Redis::HMSet(const Slice& key, const std::vector<FieldValue>& fvs) {
         s = db_->Get(default_read_options_, handles_[kHashesDataCF], hashes_data_key.Encode(), &data_value);
         if (s.ok()) {
           statistic++;
-          batch.Put(handles_[kHashesDataCF], hashes_data_key.Encode(), inter_value.Encode());
+          batch->Put(kHashesDataCF, hashes_data_key.Encode(), inter_value.Encode());
         } else if (s.IsNotFound()) {
           count++;
-          batch.Put(handles_[kHashesDataCF], hashes_data_key.Encode(), inter_value.Encode());
+          batch->Put(kHashesDataCF, hashes_data_key.Encode(), inter_value.Encode());
         } else {
           return s;
         }
@@ -598,20 +598,20 @@ Status Redis::HMSet(const Slice& key, const std::vector<FieldValue>& fvs) {
         return Status::InvalidArgument("hash size overflow");
       }
       parsed_hashes_meta_value.ModifyCount(count);
-      batch.Put(handles_[kHashesMetaCF], base_meta_key.Encode(), meta_value);
+      batch->Put(kHashesMetaCF, base_meta_key.Encode(), meta_value);
     }
   } else if (s.IsNotFound()) {
     EncodeFixed32(meta_value_buf, filtered_fvs.size());
     HashesMetaValue hashes_meta_value(Slice(meta_value_buf, sizeof(int32_t)));
     version = hashes_meta_value.UpdateVersion();
-    batch.Put(handles_[kHashesMetaCF], base_meta_key.Encode(), hashes_meta_value.Encode());
+    batch->Put(kHashesMetaCF, base_meta_key.Encode(), hashes_meta_value.Encode());
     for (const auto& fv : filtered_fvs) {
       HashesDataKey hashes_data_key(key, version, fv.field);
       BaseDataValue inter_value(fv.value);
-      batch.Put(handles_[kHashesDataCF], hashes_data_key.Encode(), inter_value.Encode());
+      batch->Put(kHashesDataCF, hashes_data_key.Encode(), inter_value.Encode());
     }
   }
-  s = db_->Write(default_write_options_, &batch);
+  s = batch->Commit();
   UpdateSpecificKeyStatistics(DataType::kHashes, key.ToString(), statistic);
   return s;
 }
