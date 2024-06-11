@@ -153,6 +153,48 @@ var _ = Describe("Consistency", Ordered, func() {
 		}
 	})
 
+	It("HIncrby Consistency Test", func() {
+		const testKey = "HashConsistencyTest"
+		const testField = "HIncrbyField"
+		// write on leader
+		set, err := leader.HSet(ctx, testKey, testField, 5).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(set).To(Equal(int64(1)))
+
+		// incrby 1
+		hincrby, err := leader.HIncrBy(ctx, testKey, testField, 1).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hincrby).To(Equal(int64(6)))
+		// read check
+		readChecker(func(c *redis.Client) {
+			hget, err := c.HGet(ctx, testKey, testField).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hget).To(Equal("6"))
+		})
+
+		// incrby -1
+		hincrby, err = leader.HIncrBy(ctx, testKey, testField, -1).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hincrby).To(Equal(int64(5)))
+		// read check
+		readChecker(func(c *redis.Client) {
+			hget, err := c.HGet(ctx, testKey, testField).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hget).To(Equal("5"))
+		})
+
+		// incrby -10
+		hincrby, err = leader.HIncrBy(ctx, testKey, testField, -10).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hincrby).To(Equal(int64(-5)))
+		// read check
+		readChecker(func(c *redis.Client) {
+			hget, err := c.HGet(ctx, testKey, testField).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hget).To(Equal("-5"))
+		})
+	})
+
 	It("SAdd & SRem Consistency Test", func() {
 		const testKey = "SetsConsistencyTestKey"
 		testValues := []string{"sa", "sb", "sc", "sd"}
