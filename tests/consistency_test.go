@@ -153,6 +153,27 @@ var _ = Describe("Consistency", Ordered, func() {
 		}
 	})
 
+	It("HSetnx Consistency Test", func() {
+		const testKey = "HashConsistencyTest"
+		const testField = "HSetnxTestField"
+		const testValue = "HSetnxTestValue"
+
+		setnx, err := leader.HSetNX(ctx, testKey, testField, testValue).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(setnx).To(BeTrue())
+
+		setnx, err = leader.HSetNX(ctx, testKey, testField, "NewValue").Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(setnx).To(BeFalse())
+
+		// read check
+		readChecker(func(c *redis.Client) {
+			hget, err := c.HGet(ctx, testKey, testField).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hget).To(Equal(testValue))
+		})
+	})
+
 	It("HMSet Consistency Test", func() {
 		const testKey = "HashConsistencyTest"
 		testValue := map[string]string{
@@ -160,17 +181,17 @@ var _ = Describe("Consistency", Ordered, func() {
 			"fb": "vb",
 			"fc": "vc",
 		}
-    // write on leader
-    hmset, err := leader.HMSet(ctx, testKey, testValue).Result()
-    Expect(err).NotTo(HaveOccurred())
-    Expect(hmset).To(BeTrue())
+		// write on leader
+		hmset, err := leader.HMSet(ctx, testKey, testValue).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hmset).To(BeTrue())
 
-    // read check
-    readChecker(func(c *redis.Client) {
-      getall, err := c.HGetAll(ctx, testKey).Result()
-      Expect(err).NotTo(HaveOccurred())
-      Expect(getall).To(Equal(testValue))
-    })
+		// read check
+		readChecker(func(c *redis.Client) {
+			getall, err := c.HGetAll(ctx, testKey).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getall).To(Equal(testValue))
+		})
 	})
 
 	It("HIncrby Consistency Test", func() {
