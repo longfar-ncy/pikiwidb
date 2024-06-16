@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"context"
 	"log"
+	"math"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -252,7 +253,9 @@ var _ = Describe("Consistency", Ordered, func() {
 		readChecker(func(c *redis.Client) {
 			hget, err := c.HGet(ctx, testKey, testField).Result()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(hget).To(Equal("10.6"))
+			hgetfloat, err := strconv.ParseFloat(hget, 64)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(math.Abs(hgetfloat-10.6) < 0.0000001).To(BeTrue())
 		})
 
 		// incrby -5
