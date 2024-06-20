@@ -1,6 +1,7 @@
-FROM debian:buster
+FROM ubuntu:22.04
 
 # Install packages
+RUN sed -i "s@/archive.ubuntu.com/@/mirrors.tuna.tsinghua.edu.cn/@g" /etc/apt/sources.list
 RUN apt-get update && \
     apt-get -y install \
         openssh-server \
@@ -36,12 +37,14 @@ RUN apt-get update && \
         unzip \
         vim \
         wget \
-	tcpdump \
-	git \
+        tcpdump \
+        git \
         cmake \
         automake \
         autoconf \
         libtool \
+        libssl-dev \
+        zlib1g-dev \
         && \
         apt-get remove -y --purge --auto-remove systemd
 

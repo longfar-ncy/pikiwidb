@@ -1,8 +1,5 @@
 FROM debian:buster
 
-#
-# Jepsen dependencies
-#
 RUN apt-get -y -q update && \
     apt-get install -qqy \
         openjdk-11-jdk \
@@ -10,7 +7,7 @@ RUN apt-get -y -q update && \
         git \
         gnuplot \
         wget \
-	vim \
+        vim \
         graphviz
 
 ENV LEIN_ROOT true
@@ -19,10 +16,8 @@ RUN wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
     chmod +x /usr/bin/lein && \
     lein self-install
 
-ARG JEPSEN_REPO=redislabs/jepsen-redisraft
-RUN git clone https://github.com/${JEPSEN_REPO} /jepsen && \
-    cd /jepsen && \
-    lein install
+ARG REPO-URL=https://github.com/OpenAtomFoundation/pikiwidb.git
+RUN git clone ${REPO-URL}
 
 ADD entrypoint.sh /entrypoint.sh
 RUN chmod 0755 /entrypoint.sh
