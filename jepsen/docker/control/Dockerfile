@@ -1,4 +1,6 @@
 FROM debian:buster
+#FROM ubuntu:22.04
+#RUN sed -i "s@/archive.ubuntu.com/@/mirrors.tuna.tsinghua.edu.cn/@g" /etc/apt/sources.list
 
 RUN apt-get -y -q update && \
     apt-get install -qqy \
