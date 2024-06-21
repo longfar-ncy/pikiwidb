@@ -14,8 +14,8 @@ services:
       - n3
       - n4
       - n5
-    # volumes:
-    #   - ./jepsen-data:/jepsen/store
+    volumes:
+      - ./jepsen-data:/jepsen-pikiwidb/store
   n1:
     container_name: pikiwidb-n1
     build: ./node
