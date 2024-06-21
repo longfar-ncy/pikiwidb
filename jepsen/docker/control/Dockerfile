@@ -16,8 +16,7 @@ RUN wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
     chmod +x /usr/bin/lein && \
     lein self-install
 
-ARG REPO-URL=https://github.com/OpenAtomFoundation/pikiwidb.git
-RUN git clone ${REPO-URL}
+RUN git clone https://github.com/longfar-ncy/jepsen-pikiwidb
 
 ADD entrypoint.sh /entrypoint.sh
 RUN chmod 0755 /entrypoint.sh

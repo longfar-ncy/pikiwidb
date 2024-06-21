@@ -14,6 +14,5 @@ echo "$KNOWN_HOSTS" | sed 's/\\n/\
 /g' > /root/.ssh/known_hosts
 chmod 0600 /root/.ssh/known_hosts
 
-# cd /jepsen
-# lein run serve
-bash
+cd /jepsen-pikiwidb
+lein run serve

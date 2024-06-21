@@ -30,7 +30,7 @@ RUN apt-get update && \
         net-tools \
         ntpdate \
         psmisc \
-        python \
+        python3 \
         rsyslog \
         sudo \
         tar \
@@ -47,6 +47,8 @@ RUN apt-get update && \
         zlib1g-dev \
         && \
         apt-get remove -y --purge --auto-remove systemd
+
+RUN git clone https://github.com/longfar-ncy/pikiwidb -b test/jepsen
 
 ADD entrypoint.sh /entrypoint.sh
 RUN chmod 0755 /entrypoint.sh
