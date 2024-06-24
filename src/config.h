@@ -151,10 +151,10 @@ class PConfig {
   AtomicString log_dir = "stdout";  // the log directory, differ from redis
   AtomicString log_level = "warning";
   AtomicString run_id;
-  std::atomic<size_t> databases = 16;
+  std::atomic<size_t> databases = 1;
   std::atomic_uint32_t worker_threads_num = 2;
   std::atomic_uint32_t slave_threads_num = 2;
-  std::atomic<size_t> db_instance_num = 3;
+  std::atomic<size_t> db_instance_num = 1;
   std::atomic_bool use_raft = true;
 
   std::atomic_uint32_t rocksdb_max_subcompactions = 0;
