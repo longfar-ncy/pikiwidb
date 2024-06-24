@@ -72,23 +72,18 @@ void ClusterCmdContext::ConnectTargetNode() {
   auto ip = PREPL.GetMasterAddr().GetIP();
   auto port = PREPL.GetMasterAddr().GetPort();
   if (ip == peer_ip_ && port == port_ && PREPL.GetMasterState() == kPReplStateConnected) {
-    PRAFT.SendNodeRequest(PREPL.GetMaster());
+    praft_->SendNodeRequest(PREPL.GetMaster());
     return;
   }
 
   // reconnect
   auto fail_cb = [&](const std::string& err) {
     INFO("Failed to connect to cluster node, err: {}", err);
-    PRAFT.OnClusterCmdConnectionFailed(err);
+    praft_->OnClusterCmdConnectionFailed(err);
   };
   PREPL.SetFailCallback(fail_cb);
   PREPL.SetMasterState(kPReplStateNone);
   PREPL.SetMasterAddr(peer_ip_.c_str(), port_);
-}
-
-PRaft& PRaft::Instance() {
-  static PRaft store;
-  return store;
 }
 
 butil::Status PRaft::Init(std::string& group_id, bool initial_conf_is_null) {
@@ -99,7 +94,7 @@ butil::Status PRaft::Init(std::string& group_id, bool initial_conf_is_null) {
   server_ = std::make_unique<brpc::Server>();
   auto port = g_config.port + pikiwidb::g_config.raft_port_offset;
   // Add your service into RPC server
-  DummyServiceImpl service(&PRAFT);
+  DummyServiceImpl service(this);
   if (server_->AddService(&service, brpc::SERVER_DOESNT_OWN_SERVICE) != 0) {
     server_.reset();
     return ERROR_LOG_AND_STATUS("Failed to add service");
@@ -349,10 +344,10 @@ int PRaft::ProcessClusterCmdResponse(PClient* client, const char* start, int len
   int ret = 0;
   switch (cluster_cmd_type) {
     case ClusterCmdType::kJoin:
-      ret = PRAFT.ProcessClusterJoinCmdResponse(client, start, len);
+      ret = ProcessClusterJoinCmdResponse(client, start, len);
       break;
     case ClusterCmdType::kRemove:
-      ret = PRAFT.ProcessClusterRemoveCmdResponse(client, start, len);
+      ret = ProcessClusterRemoveCmdResponse(client, start, len);
       break;
     default:
       client->SetRes(CmdRes::kErrOther, "RAFT.CLUSTER response supports JOIN/REMOVE only");
@@ -419,14 +414,14 @@ void PRaft::LeaderRedirection(PClient* join_client, const std::string& reply) {
 
   // Reset the target of the connection
   cluster_cmd_ctx_.Clear();
-  auto ret = PRAFT.GetClusterCmdCtx().Set(ClusterCmdType::kJoin, join_client, std::move(peer_ip), port);
+  auto ret = GetClusterCmdCtx().Set(ClusterCmdType::kJoin, join_client, std::move(peer_ip), port);
   if (!ret) {  // other clients have joined
     join_client->SetRes(CmdRes::kErrOther, "Other clients have joined");
     join_client->SendPacket();
     //    join_client->Clear();
     return;
   }
-  PRAFT.GetClusterCmdCtx().ConnectTargetNode();
+  GetClusterCmdCtx().ConnectTargetNode();
 
   // Not reply any message here, we will reply after the connection is established.
   join_client->Clear();
@@ -441,7 +436,7 @@ void PRaft::InitializeNodeBeforeAdd(PClient* client, PClient* join_client, const
   if (group_id_end != std::string::npos) {
     std::string raft_group_id = reply.substr(group_id_start, group_id_end - group_id_start);
     // initialize the slave node
-    auto s = PRAFT.Init(raft_group_id, true);
+    auto s = Init(raft_group_id, true);
     if (!s.ok()) {
       join_client->SetRes(CmdRes::kErrOther, s.error_str());
       join_client->SendPacket();
@@ -451,7 +446,7 @@ void PRaft::InitializeNodeBeforeAdd(PClient* client, PClient* join_client, const
       return;
     }
 
-    PRAFT.SendNodeAddRequest(client);
+    SendNodeAddRequest(client);
   } else {
     ERROR("Joined Raft cluster fail, because of invalid raft_group_id");
     join_client->SetRes(CmdRes::kErrOther, "Invalid raft_group_id");
@@ -472,7 +467,7 @@ int PRaft::ProcessClusterJoinCmdResponse(PClient* client, const char* start, int
 
   std::string reply(start, len);
   if (reply.find(OK_STR) != std::string::npos) {
-    INFO("Joined Raft cluster, node id: {}, group_id: {}", PRAFT.GetNodeID(), PRAFT.group_id_);
+    INFO("Joined Raft cluster, node id: {}, group_id: {}", GetNodeID(), group_id_);
     join_client->SetRes(CmdRes::kOK);
     join_client->SendPacket();
     //    join_client->Clear();
@@ -506,7 +501,7 @@ int PRaft::ProcessClusterRemoveCmdResponse(PClient* client, const char* start, i
 
   std::string reply(start, len);
   if (reply.find(OK_STR) != std::string::npos) {
-    INFO("Removed Raft cluster, node id: {}, group_id: {}", PRAFT.GetNodeID(), PRAFT.group_id_);
+    INFO("Removed Raft cluster, node id: {}, group_id: {}", GetNodeID(), group_id_);
     ShutDown();
     Join();
     Clear();

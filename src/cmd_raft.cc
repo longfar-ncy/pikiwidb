@@ -16,7 +16,6 @@
 #include <optional>
 #include <string>
 
-// #include "net/event_loop.h"
 #include "praft/praft.h"
 #include "pstd/log.h"
 #include "pstd/pstd_string.h"
@@ -25,6 +24,7 @@
 #include "config.h"
 #include "pikiwidb.h"
 #include "replication.h"
+#include "store.h"
 
 namespace pikiwidb {
 
@@ -39,10 +39,12 @@ bool RaftNodeCmd::DoInitial(PClient* client) {
     client->SetRes(CmdRes::kErrOther, "RAFT.NODE supports ADD / REMOVE / DOSNAPSHOT only");
     return false;
   }
+  praft_ = PSTORE.GetBackend(client->GetCurrentDB())->GetPRaft();
   return true;
 }
 
 void RaftNodeCmd::DoCmd(PClient* client) {
+  assert(praft_);
   auto cmd = client->argv_[1];
   pstd::StringToUpper(cmd);
   if (cmd == kAddCmd) {
@@ -58,8 +60,8 @@ void RaftNodeCmd::DoCmd(PClient* client) {
 
 void RaftNodeCmd::DoCmdAdd(PClient* client) {
   // Check whether it is a leader. If it is not a leader, return the leader information
-  if (!PRAFT.IsLeader()) {
-    client->SetRes(CmdRes::kWrongLeader, PRAFT.GetLeaderID());
+  if (!praft_->IsLeader()) {
+    client->SetRes(CmdRes::kWrongLeader, praft_->GetLeaderID());
     return;
   }
 
@@ -70,7 +72,7 @@ void RaftNodeCmd::DoCmdAdd(PClient* client) {
 
   // RedisRaft has nodeid, but in Braft, NodeId is IP:Port.
   // So we do not need to parse and use nodeid like redis;
-  auto s = PRAFT.AddPeer(client->argv_[3]);
+  auto s = praft_->AddPeer(client->argv_[3]);
   if (s.ok()) {
     client->SetRes(CmdRes::kOK);
   } else {
@@ -80,7 +82,7 @@ void RaftNodeCmd::DoCmdAdd(PClient* client) {
 
 void RaftNodeCmd::DoCmdRemove(PClient* client) {
   // If the node has been initialized, it needs to close the previous initialization and rejoin the other group
-  if (!PRAFT.IsInitialized()) {
+  if (!praft_->IsInitialized()) {
     client->SetRes(CmdRes::kErrOther, "Don't already cluster member");
     return;
   }
@@ -91,9 +93,9 @@ void RaftNodeCmd::DoCmdRemove(PClient* client) {
   }
 
   // Check whether it is a leader. If it is not a leader, send remove request to leader
-  if (!PRAFT.IsLeader()) {
+  if (!praft_->IsLeader()) {
     // Get the leader information
-    braft::PeerId leader_peer_id(PRAFT.GetLeaderID());
+    braft::PeerId leader_peer_id(praft_->GetLeaderID());
     // @todo There will be an unreasonable address, need to consider how to deal with it
     if (leader_peer_id.is_empty()) {
       client->SetRes(CmdRes::kErrOther,
@@ -106,11 +108,11 @@ void RaftNodeCmd::DoCmdRemove(PClient* client) {
     auto port = leader_peer_id.addr.port - pikiwidb::g_config.raft_port_offset;
     auto peer_id = client->argv_[2];
     auto ret =
-        PRAFT.GetClusterCmdCtx().Set(ClusterCmdType::kRemove, client, std::move(peer_ip), port, std::move(peer_id));
+        praft_->GetClusterCmdCtx().Set(ClusterCmdType::kRemove, client, std::move(peer_ip), port, std::move(peer_id));
     if (!ret) {  // other clients have removed
       return client->SetRes(CmdRes::kErrOther, "Other clients have removed");
     }
-    PRAFT.GetClusterCmdCtx().ConnectTargetNode();
+    praft_->GetClusterCmdCtx().ConnectTargetNode();
     INFO("Sent remove request to leader successfully");
 
     // Not reply any message here, we will reply after the connection is established.
@@ -118,7 +120,7 @@ void RaftNodeCmd::DoCmdRemove(PClient* client) {
     return;
   }
 
-  auto s = PRAFT.RemovePeer(client->argv_[2]);
+  auto s = praft_->RemovePeer(client->argv_[2]);
   if (s.ok()) {
     client->SetRes(CmdRes::kOK);
   } else {
@@ -129,7 +131,7 @@ void RaftNodeCmd::DoCmdRemove(PClient* client) {
 void RaftNodeCmd::DoCmdSnapshot(PClient* client) {
   auto self_snapshot_index = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->GetSmallestFlushedLogIndex();
   INFO("DoCmdSnapshot self_snapshot_index:{}", self_snapshot_index);
-  auto s = PRAFT.DoSnapshot(self_snapshot_index);
+  auto s = praft_->DoSnapshot(self_snapshot_index);
   if (s.ok()) {
     client->SetRes(CmdRes::kOK);
   }
@@ -145,11 +147,13 @@ bool RaftClusterCmd::DoInitial(PClient* client) {
     client->SetRes(CmdRes::kErrOther, "RAFT.CLUSTER supports INIT/JOIN only");
     return false;
   }
+  praft_ = PSTORE.GetBackend(client->GetCurrentDB())->GetPRaft();
   return true;
 }
 
 void RaftClusterCmd::DoCmd(PClient* client) {
-  if (PRAFT.IsInitialized()) {
+  assert(praft_);
+  if (praft_->IsInitialized()) {
     return client->SetRes(CmdRes::kErrOther, "Already cluster member");
   }
 
@@ -177,7 +181,7 @@ void RaftClusterCmd::DoCmdInit(PClient* client) {
   } else {
     cluster_id = pstd::RandomHexChars(RAFT_GROUPID_LEN);
   }
-  auto s = PRAFT.Init(cluster_id, false);
+  auto s = praft_->Init(cluster_id, false);
   if (!s.ok()) {
     return client->SetRes(CmdRes::kErrOther, fmt::format("Failed to init node: ", s.error_str()));
   }
@@ -197,7 +201,7 @@ static inline std::optional<std::pair<std::string, int32_t>> GetIpAndPortFromEnd
 
 void RaftClusterCmd::DoCmdJoin(PClient* client) {
   // If the node has been initialized, it needs to close the previous initialization and rejoin the other group
-  if (PRAFT.IsInitialized()) {
+  if (praft_->IsInitialized()) {
     return client->SetRes(CmdRes::kErrOther,
                           "A node that has been added to a cluster must be removed \
       from the old cluster before it can be added to the new cluster");
@@ -224,11 +228,11 @@ void RaftClusterCmd::DoCmdJoin(PClient* client) {
   auto& [peer_ip, port] = *ip_port;
 
   // Connect target
-  auto ret = PRAFT.GetClusterCmdCtx().Set(ClusterCmdType::kJoin, client, std::move(peer_ip), port);
+  auto ret = praft_->GetClusterCmdCtx().Set(ClusterCmdType::kJoin, client, std::move(peer_ip), port);
   if (!ret) {  // other clients have joined
     return client->SetRes(CmdRes::kErrOther, "Other clients have joined");
   }
-  PRAFT.GetClusterCmdCtx().ConnectTargetNode();
+  praft_->GetClusterCmdCtx().ConnectTargetNode();
   INFO("Sent join request to leader successfully");
 
   // Not reply any message here, we will reply after the connection is established.

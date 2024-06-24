@@ -166,6 +166,9 @@ class InfoCmd : public BaseCmd {
   std::string FormatCommandStatLine(const CommandStatistics& stats);
   double MethodofTotalTimeCalculation(const uint64_t time_consuming);
   double MethodofCommandStatistics(const uint64_t time_consuming, const uint64_t frequency);
+
+ private:
+  PRaft* praft_ = nullptr;
 };
 
 class CmdDebug : public BaseCmdGroup {

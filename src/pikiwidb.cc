@@ -240,9 +240,6 @@ void PikiwiDB::Run() {
 }
 
 void PikiwiDB::Stop() {
-  pikiwidb::PRAFT.ShutDown();
-  pikiwidb::PRAFT.Join();
-  pikiwidb::PRAFT.Clear();
   cmd_threads_.Stop();
   event_server_->StopServer();
 }

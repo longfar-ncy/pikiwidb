@@ -15,6 +15,7 @@
 #include "base_cmd.h"
 
 namespace pikiwidb {
+class PRaft;
 
 /* RAFT.NODE ADD [id] [address:port]
  *   Add a new node to the cluster.  The [id] can be an explicit non-zero value,
@@ -50,6 +51,9 @@ class RaftNodeCmd : public BaseCmd {
   void DoCmdRemove(PClient *client);
   void DoCmdSnapshot(PClient *client);
 
+private:
+  PRaft* praft_ = nullptr;
+
   static constexpr std::string_view kAddCmd = "ADD";
   static constexpr std::string_view kRemoveCmd = "REMOVE";
   static constexpr std::string_view kDoSnapshot = "DOSNAPSHOT";
@@ -78,6 +82,9 @@ class RaftClusterCmd : public BaseCmd {
   void DoCmd(PClient *client) override;
   void DoCmdInit(PClient *client);
   void DoCmdJoin(PClient *client);
+
+private:
+  PRaft* praft_ = nullptr;
 
   static constexpr std::string_view kInitCmd = "INIT";
   static constexpr std::string_view kJoinCmd = "JOIN";

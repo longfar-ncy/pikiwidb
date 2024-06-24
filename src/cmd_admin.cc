@@ -171,6 +171,11 @@ const std::string InfoCmd::kRaftSection = "raft";
 
 InfoCmd::InfoCmd(const std::string& name, int16_t arity) : BaseCmd(name, arity, kCmdFlagsAdmin, kAclCategoryAdmin) {}
 
+// bool InfoCmd::DoInitial(PClient* client) {
+//   praft_ = PSTORE.GetBackend(client->GetCurrentDB())->GetPRaft();
+//   return true;
+// }
+
 bool InfoCmd::DoInitial(PClient* client) {
   size_t argc = client->argv_.size();
   if (argc == 1) {
@@ -178,7 +183,7 @@ bool InfoCmd::DoInitial(PClient* client) {
     return true;
   }
 
-  std::string argv_ = client->argv_[1].data();
+  std::string argv_ = client->argv_[1];
   // convert section to lowercase
   std::transform(argv_.begin(), argv_.end(), argv_.begin(), [](unsigned char c) { return std::tolower(c); });
   if (argc == 2) {
@@ -260,23 +265,28 @@ void InfoCmd::DoCmd(PClient* client) {
     raft_num_voting_nodes:2
     raft_node1:id=1733428433,state=connected,voting=yes,addr=localhost,port=5001,last_conn_secs=5,conn_errors=0,conn_oks=1
 */
-void InfoCmd::InfoRaft(std::string& message) {
-  if (!PRAFT.IsInitialized()) {
-    message += "-ERR Not a cluster member.\r\n";
-    return;
+void InfoCmd::InfoRaft(PClient* client) {
+  if (client->argv_.size() != 2) {
+    return client->SetRes(CmdRes::kWrongNum, client->CmdName());
   }
 
-  auto node_status = PRAFT.GetNodeStatus();
+  praft_ = PSTORE.GetBackend(client->GetCurrentDB())->GetPRaft();
+  assert(praft_);
+  if (!praft_->IsInitialized()) {
+    return client->SetRes(CmdRes::kErrOther, "Don't already cluster member");
+  }
+
+  auto node_status = praft_->GetNodeStatus();
+  std::string message;
   if (node_status.state == braft::State::STATE_END) {
     message += "-ERR Node is not initialized.\r\n";
     return;
   }
 
   std::stringstream tmp_stream;
-
-  tmp_stream << "raft_group_id:" << PRAFT.GetGroupID() << "\r\n";
-  tmp_stream << "raft_node_id:" << PRAFT.GetNodeID() << "\r\n";
-  tmp_stream << "raft_peer_id:" << PRAFT.GetPeerID() << "\r\n";
+  tmp_stream << "raft_group_id:" << praft_->GetGroupID() << "\r\n";
+  tmp_stream << "raft_node_id:" << praft_->GetNodeID() << "\r\n";
+  tmp_stream << "raft_peer_id:" << praft_->GetPeerID() << "\r\n";
   if (braft::is_active_state(node_status.state)) {
     tmp_stream << "raft_state:up\r\n";
   } else {
@@ -286,9 +296,9 @@ void InfoCmd::InfoRaft(std::string& message) {
   tmp_stream << "raft_leader_id:" << node_status.leader_id.to_string() << "\r\n";
   tmp_stream << "raft_current_term:" << std::to_string(node_status.term) << "\r\n";
 
-  if (PRAFT.IsLeader()) {
+  if (praft_->IsLeader()) {
     std::vector<braft::PeerId> peers;
-    auto status = PRAFT.GetListPeers(&peers);
+    auto status = praft_->GetListPeers(&peers);
     if (!status.ok()) {
       tmp_stream.str("-ERR ");
       tmp_stream << status.error_str() << "\r\n";

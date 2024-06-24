@@ -7,11 +7,9 @@
 
 #pragma once
 
-#include <filesystem>
 #include <future>
 #include <mutex>
 #include <string>
-#include <tuple>
 #include <vector>
 
 #include "braft/file_system_adaptor.h"
@@ -34,10 +32,9 @@ namespace pikiwidb {
 #define RAFT_GROUP_ID "raft_group_id:"
 #define NOT_LEADER "Not leader"
 
-#define PRAFT PRaft::Instance()
-
-// class EventLoop;
+class EventLoop;
 class Binlog;
+class PRaft;
 
 enum ClusterCmdType {
   kNone,
@@ -46,10 +43,8 @@ enum ClusterCmdType {
 };
 
 class ClusterCmdContext {
-  friend class PRaft;
-
  public:
-  ClusterCmdContext() = default;
+  ClusterCmdContext(PRaft* raft) : praft_(raft) {}
   ~ClusterCmdContext() = default;
 
   bool Set(ClusterCmdType cluster_cmd_type, PClient* client, std::string&& peer_ip, int port,
@@ -69,6 +64,7 @@ class ClusterCmdContext {
   void ConnectTargetNode();
 
  private:
+  PRaft* praft_;
   ClusterCmdType cluster_cmd_type_ = ClusterCmdType::kNone;
   std::mutex mtx_;
   PClient* client_ = nullptr;
@@ -95,9 +91,11 @@ class PRaftWriteDoneClosure : public braft::Closure {
 class PRaft : public braft::StateMachine {
  public:
   PRaft() = default;
-  ~PRaft() override = default;
-
-  static PRaft& Instance();
+  ~PRaft() override {
+    ShutDown();
+    Join();
+    Clear();
+  }
 
   //===--------------------------------------------------------------------===//
   // Braft API
