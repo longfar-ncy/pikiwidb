@@ -18,6 +18,10 @@ Run:
 This should result with a `secret/` directory created with configuration files
 in it.
 
+Before build docker images, copy the binary file into node:
+
+    cp ../../bin/pikiwidb ./node/
+
 Next, build the images:
 
     docker-compose build
