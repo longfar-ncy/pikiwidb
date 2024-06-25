@@ -9,7 +9,8 @@ RUN apt-get update && \
         && \
 mkdir -p /var/run/sshd && \
 sed -i "s/UsePrivilegeSeparation.*/UsePrivilegeSeparation no/g" /etc/ssh/sshd_config && \
-sed -i "s/PermitRootLogin without-password/PermitRootLogin yes/g" /etc/ssh/sshd_config
+sed -i "s/PermitRootLogin without-password/PermitRootLogin yes/g" /etc/ssh/sshd_config && \
+echo "PubkeyAcceptedKeyTypes=+ssh-rsa" >> /etc/ssh/sshd_config
 
 # Install Jepsen deps
 RUN apt-get update && \
@@ -48,10 +49,9 @@ RUN apt-get update && \
         && \
         apt-get remove -y --purge --auto-remove systemd
 
-RUN git clone https://github.com/longfar-ncy/pikiwidb -b test/jepsen
-
 ADD entrypoint.sh /entrypoint.sh
 RUN chmod 0755 /entrypoint.sh
+ADD pikiwidb /bin/pikiwidb
 
 EXPOSE 22
 ENTRYPOINT ["/entrypoint.sh"]
