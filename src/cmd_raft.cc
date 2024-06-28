@@ -183,7 +183,7 @@ void RaftClusterCmd::DoCmdInit(PClient* client) {
   }
   auto s = praft_->Init(cluster_id, false);
   if (!s.ok()) {
-    return client->SetRes(CmdRes::kErrOther, fmt::format("Failed to init node: ", s.error_str()));
+    return client->SetRes(CmdRes::kErrOther, fmt::format("Failed to init node: {}", s.error_str()));
   }
   client->SetRes(CmdRes::kOK);
 }
