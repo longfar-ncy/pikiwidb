@@ -10,9 +10,6 @@
 
 #include "store.h"
 
-#include <memory>
-#include <string>
-
 #include "config.h"
 #include "db.h"
 #include "pstd/log.h"
@@ -36,6 +33,19 @@ void PStore::Init(int db_number) {
     backends_.push_back(std::move(db));
     INFO("Open DB_{} success!", i);
   }
+  auto ip = g_config.ip.ToString();
+  butil::ip_t rpc_ip;
+  butil::str2ip(ip.c_str(), &rpc_ip);
+  auto rpc_port =
+      g_config.port.load(std::memory_order_relaxed) + g_config.raft_port_offset.load(std::memory_order_relaxed);
+  endpoint_ = butil::EndPoint(rpc_ip, rpc_port);
+  if (braft::add_service(GetRpcServer(), endpoint_) != 0) {
+    return ERROR("Failed to add raft service to rpc server");
+  }
+  if (rpc_server_->Start(endpoint_, nullptr) != 0) {
+    return ERROR("Failed to start rpc server");
+  }
+  INFO("Started RPC server successfully");
   INFO("STORE Init success!");
 }
 

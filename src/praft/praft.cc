@@ -10,9 +10,8 @@
 #include <cassert>
 
 #include "braft/raft.h"
-#include "braft/snapshot.h"
 #include "braft/util.h"
-#include "brpc/server.h"
+#include "butil/endpoint.h"
 #include "gflags/gflags.h"
 
 #include "pstd/log.h"
@@ -86,50 +85,10 @@ void ClusterCmdContext::ConnectTargetNode() {
   PREPL.SetMasterAddr(peer_ip_.c_str(), port_);
 }
 
-butil::Status PRaft::Init(std::string& group_id, bool initial_conf_is_null) {
-  if (node_ && server_) {
+butil::Status PRaft::Init(const std::string& group_id, bool initial_conf_is_null) {
+  if (node_) {
     return {0, "OK"};
   }
-
-  server_ = std::make_unique<brpc::Server>();
-  auto port = g_config.port + pikiwidb::g_config.raft_port_offset;
-  // Add your service into RPC server
-  DummyServiceImpl service(this);
-  if (server_->AddService(&service, brpc::SERVER_DOESNT_OWN_SERVICE) != 0) {
-    server_.reset();
-    return ERROR_LOG_AND_STATUS("Failed to add service");
-  }
-  // raft can share the same RPC server. Notice the second parameter, because
-  // adding services into a running server is not allowed and the listen
-  // address of this server is impossible to get before the server starts. You
-  // have to specify the address of the server.
-  if (braft::add_service(server_.get(), port) != 0) {
-    server_.reset();
-    return ERROR_LOG_AND_STATUS("Failed to add raft service");
-  }
-
-  // It's recommended to start the server before Counter is started to avoid
-  // the case that it becomes the leader while the service is unreacheable by
-  // clients.
-  // Notice the default options of server is used here. Check out details from
-  // the doc of brpc if you would like change some option;
-  if (server_->Start(port, nullptr) != 0) {
-    server_.reset();
-    return ERROR_LOG_AND_STATUS("Failed to start server");
-  }
-  // It's ok to start PRaft;
-  assert(group_id.size() == RAFT_GROUPID_LEN);
-  this->group_id_ = group_id;
-
-  // FIXME: g_config.ip is default to 127.0.0.0, which may not work in cluster.
-  raw_addr_ = g_config.ip.ToString() + ":" + std::to_string(port);
-  butil::ip_t ip;
-  auto ret = butil::str2ip(g_config.ip.ToString().c_str(), &ip);
-  if (ret != 0) {
-    server_.reset();
-    return ERROR_LOG_AND_STATUS("Failed to convert str_ip to butil::ip_t");
-  }
-  butil::EndPoint addr(ip, port);
 
   // Default init in one node.
   // initial_conf takes effect only when the replication group is started from an empty node.
@@ -139,37 +98,39 @@ butil::Status PRaft::Init(std::string& group_id, bool initial_conf_is_null) {
   //  Set initial_conf to empty for other nodes.
   //  You can also start empty nodes simultaneously by setting the same inital_conf(ip:port of multiple nodes) for
   //  multiple nodes.
-  std::string initial_conf;
+  braft::NodeOptions node_options;
   if (!initial_conf_is_null) {
-    initial_conf = raw_addr_ + ":0,";
+    auto endpoint_str = butil::endpoint2str(PSTORE.GetEndPoint());
+    std::string initial_conf = fmt::format("{}:0,", endpoint_str.c_str());
+    if (node_options.initial_conf.parse_from(initial_conf) != 0) {
+      return ERROR_LOG_AND_STATUS("Failed to parse configuration");
+    }
   }
-  if (node_options_.initial_conf.parse_from(initial_conf) != 0) {
-    server_.reset();
-    return ERROR_LOG_AND_STATUS("Failed to parse configuration");
-  }
+
+  node_options.fsm = this;
+  node_options.node_owns_fsm = false;
+  node_options.snapshot_interval_s = 0;
+  auto prefix = fmt::format("local://{}{}/{}", g_config.db_path.ToString(), "_praft", db_id_);
+  node_options.log_uri = prefix + "/log";
+  node_options.raft_meta_uri = prefix + "/raft_meta";
+  node_options.snapshot_uri = prefix + "/snapshot";
+  snapshot_adaptor_ = new PPosixFileSystemAdaptor();
+  node_options.snapshot_file_system_adaptor = &snapshot_adaptor_;
 
   // node_options_.election_timeout_ms = FLAGS_election_timeout_ms;
-  node_options_.fsm = this;
-  node_options_.node_owns_fsm = false;
-  node_options_.snapshot_interval_s = 0;
-  std::string prefix = "local://" + g_config.db_path.ToString() + std::to_string(db_id_) + "/_praft";
-  node_options_.log_uri = prefix + "/log";
-  node_options_.raft_meta_uri = prefix + "/raft_meta";
-  node_options_.snapshot_uri = prefix + "/snapshot";
   // node_options_.disable_cli = FLAGS_disable_cli;
-  snapshot_adaptor_ = new PPosixFileSystemAdaptor();
-  node_options_.snapshot_file_system_adaptor = &snapshot_adaptor_;
 
-  node_ = std::make_unique<braft::Node>("pikiwidb", braft::PeerId(addr));  // group_id
-  if (node_->init(node_options_) != 0) {
-    server_.reset();
+  node_ = std::make_unique<braft::Node>(group_id, braft::PeerId(PSTORE.GetEndPoint()));  // group_id
+  if (node_->init(node_options) != 0) {
     node_.reset();
     return ERROR_LOG_AND_STATUS("Failed to init raft node");
   }
+  group_id_ = group_id;
 
   // enable leader lease
   braft::FLAGS_raft_enable_leader_lease = true;
 
+  INFO("Initialized praft successfully: node_id={}", GetNodeID());
   return {0, "OK"};
 }
 
@@ -594,20 +555,12 @@ void PRaft::ShutDown() {
   if (node_) {
     node_->shutdown(nullptr);
   }
-
-  if (server_) {
-    server_->Stop(0);
-  }
 }
 
 // Blocking this thread until the node is eventually down.
 void PRaft::Join() {
   if (node_) {
     node_->join();
-  }
-
-  if (server_) {
-    server_->Join();
   }
 }
 
@@ -633,10 +586,6 @@ void PRaft::AppendLog(const Binlog& log, std::promise<rocksdb::Status>&& promise
 void PRaft::Clear() {
   if (node_) {
     node_.reset();
-  }
-
-  if (server_) {
-    server_.reset();
   }
 }
 

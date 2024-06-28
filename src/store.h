@@ -12,13 +12,13 @@
 
 #define GLOG_NO_ABBREVIATED_SEVERITIES
 
-#include <map>
-#include <shared_mutex>
+#include <memory>
 #include <vector>
 
-#include "common.h"
+#include "brpc/server.h"
+#include "butil/endpoint.h"
+
 #include "db.h"
-#include "storage/storage.h"
 
 namespace pikiwidb {
 
@@ -59,11 +59,16 @@ class PStore {
   void HandleTaskSpecificDB(const TasksVector& tasks);
 
   int GetDBNumber() const { return db_number_; }
+  brpc::Server* GetRpcServer() const { return rpc_server_.get(); }
+  const butil::EndPoint& GetEndPoint() const { return endpoint_; }
 
  private:
   PStore() = default;
+
   int db_number_ = 0;
   std::vector<std::unique_ptr<DB>> backends_;
+  butil::EndPoint endpoint_;
+  std::unique_ptr<brpc::Server> rpc_server_{std::make_unique<brpc::Server>()};
 };
 
 #define PSTORE PStore::Instance()
