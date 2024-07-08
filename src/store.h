@@ -10,6 +10,11 @@
 
 #pragma once
 
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include "praft/praft.h"
 #define GLOG_NO_ABBREVIATED_SEVERITIES
 
 #include <memory>
@@ -61,6 +66,17 @@ class PStore {
   int GetDBNumber() const { return db_number_; }
   brpc::Server* GetRpcServer() const { return rpc_server_.get(); }
   const butil::EndPoint& GetEndPoint() const { return endpoint_; }
+  void AddRegion(const std::string& group_id, uint32_t dbno) {
+    assert(!db_map_.contains(group_id));
+    db_map_.emplace(group_id, dbno);
+  }
+  DB* GetDBByGroupID(const std::string& group_id) const {
+    auto it = db_map_.find(group_id);
+    if (it == db_map_.end()) {
+      return nullptr;
+    }
+    return backends_[it->second].get();
+  }
 
  private:
   PStore() = default;
@@ -69,6 +85,7 @@ class PStore {
   std::vector<std::unique_ptr<DB>> backends_;
   butil::EndPoint endpoint_;
   std::unique_ptr<brpc::Server> rpc_server_{std::make_unique<brpc::Server>()};
+  std::unordered_map<std::string, uint32_t> db_map_;
 };
 
 #define PSTORE PStore::Instance()

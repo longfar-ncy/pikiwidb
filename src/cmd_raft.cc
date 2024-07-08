@@ -39,6 +39,7 @@ bool RaftNodeCmd::DoInitial(PClient* client) {
     client->SetRes(CmdRes::kErrOther, "RAFT.NODE supports ADD / REMOVE / DOSNAPSHOT only");
     return false;
   }
+  group_id_ = client->argv_[2];
   praft_ = PSTORE.GetBackend(client->GetCurrentDB())->GetPRaft();
   return true;
 }
@@ -52,6 +53,7 @@ void RaftNodeCmd::DoCmd(PClient* client) {
   } else if (cmd == kRemoveCmd) {
     DoCmdRemove(client);
   } else if (cmd == kDoSnapshot) {
+    assert(0); // TODO(longfar): add group id in arguments
     DoCmdSnapshot(client);
   } else {
     client->SetRes(CmdRes::kErrOther, "RAFT.NODE supports ADD / REMOVE / DOSNAPSHOT only");
@@ -59,8 +61,11 @@ void RaftNodeCmd::DoCmd(PClient* client) {
 }
 
 void RaftNodeCmd::DoCmdAdd(PClient* client) {
+  auto db = PSTORE.GetDBByGroupID(group_id_);
+  assert(db);
+  auto praft = db->GetPRaft();
   // Check whether it is a leader. If it is not a leader, return the leader information
-  if (!praft_->IsLeader()) {
+  if (!praft->IsLeader()) {
     client->SetRes(CmdRes::kWrongLeader, praft_->GetLeaderID());
     return;
   }
@@ -72,7 +77,7 @@ void RaftNodeCmd::DoCmdAdd(PClient* client) {
 
   // RedisRaft has nodeid, but in Braft, NodeId is IP:Port.
   // So we do not need to parse and use nodeid like redis;
-  auto s = praft_->AddPeer(client->argv_[3]);
+  auto s = praft->AddPeer(client->argv_[3]);
   if (s.ok()) {
     client->SetRes(CmdRes::kOK);
   } else {
@@ -171,21 +176,22 @@ void RaftClusterCmd::DoCmdInit(PClient* client) {
     return client->SetRes(CmdRes::kWrongNum, client->CmdName());
   }
 
-  std::string cluster_id;
+  std::string group_id;
   if (client->argv_.size() == 3) {
-    cluster_id = client->argv_[2];
-    if (cluster_id.size() != RAFT_GROUPID_LEN) {
+    group_id = client->argv_[2];
+    if (group_id.size() != RAFT_GROUPID_LEN) {
       return client->SetRes(CmdRes::kInvalidParameter,
                             "Cluster id must be " + std::to_string(RAFT_GROUPID_LEN) + " characters");
     }
   } else {
-    cluster_id = pstd::RandomHexChars(RAFT_GROUPID_LEN);
+    group_id = pstd::RandomHexChars(RAFT_GROUPID_LEN);
   }
-  auto s = praft_->Init(cluster_id, false);
+  auto s = praft_->Init(group_id, false);
   if (!s.ok()) {
     return client->SetRes(CmdRes::kErrOther, fmt::format("Failed to init node: {}", s.error_str()));
   }
-  client->SetRes(CmdRes::kOK);
+  PSTORE.AddRegion(praft_->GetGroupID(), client->GetCurrentDB());
+  client->SetLineString(fmt::format("+OK {}", group_id));
 }
 
 static inline std::optional<std::pair<std::string, int32_t>> GetIpAndPortFromEndPoint(const std::string& endpoint) {
@@ -207,16 +213,22 @@ void RaftClusterCmd::DoCmdJoin(PClient* client) {
       from the old cluster before it can be added to the new cluster");
   }
 
-  if (client->argv_.size() < 3) {
-    return client->SetRes(CmdRes::kWrongNum, client->CmdName());
-  }
+  // if (client->argv_.size() < 3) {
+  //   return client->SetRes(CmdRes::kWrongNum, client->CmdName());
+  // }
 
-  // (KKorpse)TODO: Support multiple nodes join at the same time.
-  if (client->argv_.size() > 3) {
-    return client->SetRes(CmdRes::kInvalidParameter, "Too many arguments");
-  }
+  // // (KKorpse)TODO: Support multiple nodes join at the same time.
+  // if (client->argv_.size() > 3) {
+  //   return client->SetRes(CmdRes::kInvalidParameter, "Too many arguments");
+  // }
+  assert(client->argv_.size() == 4);
+  auto group_id = client->argv_[2];
+  auto addr = client->argv_[3];
 
-  auto addr = client->argv_[2];
+  // init raft
+  auto s = praft_->Init(group_id, true);
+  assert(s.ok());
+
   if (braft::PeerId(addr).is_empty()) {
     return client->SetRes(CmdRes::kErrOther, fmt::format("Invalid ip::port: {}", addr));
   }

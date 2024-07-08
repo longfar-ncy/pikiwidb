@@ -122,7 +122,7 @@ class PRaft : public braft::StateMachine {
   int ProcessClusterCmdResponse(PClient* client, const char* start, int len);
   void CheckRocksDBConfiguration(PClient* client, PClient* join_client, const std::string& reply);
   void LeaderRedirection(PClient* join_client, const std::string& reply);
-  void InitializeNodeBeforeAdd(PClient* client, PClient* join_client, const std::string& reply);
+  bool InitializeNodeBeforeAdd(PClient* client, PClient* join_client, const std::string& reply);
   int ProcessClusterJoinCmdResponse(PClient* client, const char* start, int len);
   int ProcessClusterRemoveCmdResponse(PClient* client, const char* start, int len);
 

@@ -251,9 +251,10 @@ void PRaft::SendNodeRequest(PClient* client) {
 
   auto cluster_cmd_type = cluster_cmd_ctx_.GetClusterCmdType();
   switch (cluster_cmd_type) {
-    case ClusterCmdType::kJoin:
-      SendNodeInfoRequest(client, "DATA");
-      break;
+    case ClusterCmdType::kJoin: {
+      // SendNodeInfoRequest(client, "DATA");
+      SendNodeAddRequest(client);
+    } break;
     case ClusterCmdType::kRemove:
       SendNodeRemoveRequest(client);
       break;
@@ -276,17 +277,11 @@ void PRaft::SendNodeAddRequest(PClient* client) {
   assert(client);
 
   // Node id in braft are ip:port, the node id param in RAFT.NODE ADD cmd will be ignored.
-  int unused_node_id = 0;
   auto port = g_config.port + pikiwidb::g_config.raft_port_offset;
   auto raw_addr = g_config.ip.ToString() + ":" + std::to_string(port);
-  UnboundedBuffer req;
-  req.PushData("RAFT.NODE ADD ", 14);
-  req.PushData(std::to_string(unused_node_id).c_str(), std::to_string(unused_node_id).size());
-  req.PushData(" ", 1);
-  req.PushData(raw_addr.data(), raw_addr.size());
-  req.PushData("\r\n", 2);
-  client->SendPacket(req);
-  //  client->Clear();
+  auto msg = fmt::format("RAFT.NODE ADD {} {}\r\n", group_id_, raw_addr);
+  client->SendPacket(std::move(msg));
+  client->Clear();
 }
 
 void PRaft::SendNodeRemoveRequest(PClient* client) {
@@ -388,34 +383,36 @@ void PRaft::LeaderRedirection(PClient* join_client, const std::string& reply) {
   join_client->Clear();
 }
 
-void PRaft::InitializeNodeBeforeAdd(PClient* client, PClient* join_client, const std::string& reply) {
+bool PRaft::InitializeNodeBeforeAdd(PClient* client, PClient* join_client, const std::string& reply) {
   std::string prefix = RAFT_GROUP_ID;
   std::string::size_type prefix_length = prefix.length();
   std::string::size_type group_id_start = reply.find(prefix);
   group_id_start += prefix_length;  // locate the start location of "raft_group_id"
   std::string::size_type group_id_end = reply.find("\r\n", group_id_start);
-  if (group_id_end != std::string::npos) {
-    std::string raft_group_id = reply.substr(group_id_start, group_id_end - group_id_start);
-    // initialize the slave node
-    auto s = Init(raft_group_id, true);
-    if (!s.ok()) {
-      join_client->SetRes(CmdRes::kErrOther, s.error_str());
-      join_client->SendPacket();
-      //      join_client->Clear();
-      // If the join fails, clear clusterContext and set it again by using the join command
-      cluster_cmd_ctx_.Clear();
-      return;
-    }
-
-    SendNodeAddRequest(client);
-  } else {
+  if (group_id_end == std::string::npos) {  // can't find group id
     ERROR("Joined Raft cluster fail, because of invalid raft_group_id");
     join_client->SetRes(CmdRes::kErrOther, "Invalid raft_group_id");
     join_client->SendPacket();
     //    join_client->Clear();
     // If the join fails, clear clusterContext and set it again by using the join command
     cluster_cmd_ctx_.Clear();
+    return false;
   }
+
+  std::string raft_group_id = reply.substr(group_id_start, group_id_end - group_id_start);
+  // initialize the slave node
+  auto s = Init(raft_group_id, true);
+  if (!s.ok()) {
+    join_client->SetRes(CmdRes::kErrOther, s.error_str());
+    join_client->SendPacket();
+    join_client->Clear();
+    // If the join fails, clear clusterContext and set it again by using the join command
+    cluster_cmd_ctx_.Clear();
+    ERROR("Failed to init raft: {}", s.error_cstr());
+    return false;
+  }
+  INFO("Init raft successfully, groupid={}", raft_group_id);
+  return true;
 }
 
 int PRaft::ProcessClusterJoinCmdResponse(PClient* client, const char* start, int len) {
@@ -439,7 +436,12 @@ int PRaft::ProcessClusterJoinCmdResponse(PClient* client, const char* start, int
   } else if (reply.find(WRONG_LEADER) != std::string::npos) {
     LeaderRedirection(join_client, reply);
   } else if (reply.find(RAFT_GROUP_ID) != std::string::npos) {
-    InitializeNodeBeforeAdd(client, join_client, reply);
+    auto res = InitializeNodeBeforeAdd(client, join_client, reply);
+    if (!res) {
+      ERROR("Failed to initialize node before add");
+      return len;
+    }
+    SendNodeAddRequest(client);
   } else {
     ERROR("Joined Raft cluster fail, str: {}", reply);
     join_client->SetRes(CmdRes::kErrOther, reply);

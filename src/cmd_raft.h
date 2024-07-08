@@ -17,7 +17,8 @@
 namespace pikiwidb {
 class PRaft;
 
-/* RAFT.NODE ADD [id] [address:port]
+/* 
+ * RAFT.NODE ADD [id] [address:port]
  *   Add a new node to the cluster.  The [id] can be an explicit non-zero value,
  *   or zero to let the cluster choose one.
  * Reply:
@@ -53,21 +54,21 @@ class RaftNodeCmd : public BaseCmd {
 
 private:
   PRaft* praft_ = nullptr;
+  std::string group_id_;
 
   static constexpr std::string_view kAddCmd = "ADD";
   static constexpr std::string_view kRemoveCmd = "REMOVE";
   static constexpr std::string_view kDoSnapshot = "DOSNAPSHOT";
 };
 
-/* RAFT.CLUSTER INIT <id>
+/* 
+ * RAFT.CLUSTER INIT [group_id]
  *   Initializes a new Raft cluster.
- *   <id> is an optional 32 character string, if set, cluster will use it for the id
  * Reply:
- *   +OK [group_id]
+ *   +OK <group_id>
  *
- * RAFT.CLUSTER JOIN [addr:port]
- *   Join an existing cluster.
- *   The operation is asynchronous and may take place/retry in the background.
+ * RAFT.CLUSTER JOIN <group_id> <addr:port>
+ *   Join an existing cluster. The operation is asynchronous and may take place/retry in the background.
  * Reply:
  *   +OK
  */
