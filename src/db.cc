@@ -11,7 +11,7 @@
 #include "praft/praft.h"
 #include "pstd/log.h"
 
-#include "store.h"
+#include "binlog.pb.h"
 
 extern pikiwidb::PConfig g_config;
 
@@ -35,7 +35,9 @@ rocksdb::Status DB::Open(const std::string& group_id, const std::string& init_co
   storage_options.small_compaction_duration_threshold = g_config.small_compaction_duration_threshold.load();
 
   if (g_config.use_raft.load(std::memory_order_relaxed)) {
-    storage_options.append_log_function = [&r = *praft_](const Binlog& log, std::promise<rocksdb::Status>&& promise) {
+    storage_options.append_log_function = [&r = *praft_, dbid = db_index_](Binlog& log,
+                                                                           std::promise<rocksdb::Status>&& promise) {
+      log.set_db_id(dbid);
       r.AppendLog(log, std::move(promise));
     };
     storage_options.do_snapshot_function = [&r = *praft_](int64_t self_snapshot_index, bool is_sync) {

@@ -101,7 +101,7 @@ class LogIndexTest : public ::testing::Test {
     options_.options.create_if_missing = true;
     options_.db_instance_num = 1;
     options_.raft_timeout_s = 10000;
-    options_.append_log_function = [this](const pikiwidb::Binlog& log, std::promise<rocksdb::Status>&& promise) {
+    options_.append_log_function = [this](pikiwidb::Binlog& log, std::promise<rocksdb::Status>&& promise) {
       log_queue_.AppendLog(log, std::move(promise));
     };
     options_.do_snapshot_function = [](int64_t log_index, bool sync) {};

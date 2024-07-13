@@ -61,7 +61,7 @@ enum class OptionType;
 template <typename T1, typename T2>
 class LRUCache;
 
-using AppendLogFunction = std::function<void(const pikiwidb::Binlog&, std::promise<Status>&&)>;
+using AppendLogFunction = std::function<void(pikiwidb::Binlog&, std::promise<Status>&&)>;
 using DoSnapshotFunction = std::function<void(LogIndex, bool)>;
 
 struct StorageOptions {
