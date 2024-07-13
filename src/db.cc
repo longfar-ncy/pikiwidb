@@ -19,7 +19,9 @@ extern pikiwidb::PConfig g_config;
 namespace pikiwidb {
 
 DB::DB(int db_index, const std::string& db_path)
-    : db_index_(db_index), db_path_(db_path + std::to_string(db_index_) + '/') {}
+    : db_index_(db_index),
+      db_path_(db_path + std::to_string(db_index_) + '/'),
+      praft_(std::make_unique<PRaft>(db_index)) {}
 
 DB::~DB() { INFO("DB{} is closing...", db_index_); }
 

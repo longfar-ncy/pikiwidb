@@ -53,7 +53,7 @@ void RaftNodeCmd::DoCmd(PClient* client) {
   } else if (cmd == kRemoveCmd) {
     DoCmdRemove(client);
   } else if (cmd == kDoSnapshot) {
-    assert(0); // TODO(longfar): add group id in arguments
+    assert(0);  // TODO(longfar): add group id in arguments
     DoCmdSnapshot(client);
   } else {
     client->SetRes(CmdRes::kErrOther, "RAFT.NODE supports ADD / REMOVE / DOSNAPSHOT only");
@@ -61,6 +61,7 @@ void RaftNodeCmd::DoCmd(PClient* client) {
 }
 
 void RaftNodeCmd::DoCmdAdd(PClient* client) {
+  DEBUG("Received RAFT.NODE ADD cmd from {}", client->PeerIP());
   auto db = PSTORE.GetDBByGroupID(group_id_);
   assert(db);
   auto praft = db->GetPRaft();
@@ -245,7 +246,6 @@ void RaftClusterCmd::DoCmdJoin(PClient* client) {
     return client->SetRes(CmdRes::kErrOther, "Other clients have joined");
   }
   praft_->GetClusterCmdCtx().ConnectTargetNode();
-  INFO("Sent join request to leader successfully");
 
   // Not reply any message here, we will reply after the connection is established.
   client->Clear();

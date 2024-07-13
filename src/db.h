@@ -54,7 +54,7 @@ class DB {
    */
   std::shared_mutex storage_mutex_;
   std::unique_ptr<storage::Storage> storage_;
-  std::unique_ptr<PRaft> praft_{std::make_unique<PRaft>()};
+  std::unique_ptr<PRaft> praft_{nullptr};
   bool opened_ = false;
 };
 

@@ -90,7 +90,7 @@ class PRaftWriteDoneClosure : public braft::Closure {
 
 class PRaft : public braft::StateMachine {
  public:
-  PRaft() = default;
+  PRaft(uint32_t db_id) : db_id_(db_id) {}
   ~PRaft() override {
     ShutDown();
     Join();

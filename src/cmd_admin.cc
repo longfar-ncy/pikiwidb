@@ -120,7 +120,7 @@ void FlushallCmd::DoCmd(PClient* client) {
 }
 
 SelectCmd::SelectCmd(const std::string& name, int16_t arity)
-    : BaseCmd(name, arity, kCmdFlagsAdmin | kCmdFlagsReadonly, kAclCategoryAdmin) {}
+    : BaseCmd(name, arity, kCmdFlagsAdmin, kAclCategoryAdmin) {}
 
 bool SelectCmd::DoInitial(PClient* client) { return true; }
 
