@@ -124,6 +124,7 @@ class PConfig {
   Status Set(std::string, const std::string&, bool force = false);
 
  public:
+  std::vector<std::string> group_ids_;
   std::atomic_uint32_t timeout = 0;
   // auth
   AtomicString password;

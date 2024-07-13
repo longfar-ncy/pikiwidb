@@ -77,6 +77,11 @@ bool PikiwiDB::ParseArgs(int ac, char* av[]) {
     } else if (strncasecmp(av[i], "-h", 2) == 0 || strncasecmp(av[i], "--help", 6) == 0) {
       Usage();
       exit(0);
+    } else if (strncasecmp(av[i], "-g", 2) == 0) {
+      if (++i == ac) {
+        return false;
+      }
+      g_config.group_ids_.emplace_back(av[i]);
     } else if (strncasecmp(av[i], "--port", 6) == 0) {
       if (++i == ac) {
         return false;

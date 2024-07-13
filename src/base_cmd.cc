@@ -45,7 +45,7 @@ void BaseCmd::Execute(PClient* client) {
     // 2. If PRAFT is initialized and the current node is not the leader, return a redirection message for write
     // commands.
     if (HasFlag(kCmdFlagsWrite) && !praft->IsLeader()) {
-      return client->SetRes(CmdRes::kErrOther, fmt::format("MOVED {}", praft->GetLeaderAddress()));
+      return client->SetRes(CmdRes::kErrOther, fmt::format("MOVED {}", praft->GetNodeID()));
     }
   }
 

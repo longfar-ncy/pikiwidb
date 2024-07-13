@@ -9,6 +9,7 @@
 #include "db.h"
 
 #include "braft/raft.h"
+#include "fmt/core.h"
 #include "rocksdb/version.h"
 
 #include "pikiwidb.h"
@@ -65,8 +66,8 @@ void FlushdbCmd::DoCmd(PClient* client) {
   path_temp.append("_deleting/");
   pstd::RenameFile(db_path, path_temp);
 
-  auto s = PSTORE.GetBackend(currentDBIndex)->Open();
-  assert(s.ok());
+  // auto s = PSTORE.GetBackend(currentDBIndex)->Open();
+  // assert(s.ok());
   auto f = std::async(std::launch::async, [&path_temp]() { pstd::DeleteDir(path_temp); });
   PSTORE.GetBackend(currentDBIndex).get()->UnLock();
   client->SetRes(CmdRes::kOK);
@@ -86,8 +87,8 @@ void FlushallCmd::DoCmd(PClient* client) {
     path_temp.append("_deleting/");
     pstd::RenameFile(db_path, path_temp);
 
-    auto s = PSTORE.GetBackend(i)->Open();
-    assert(s.ok());
+    // auto s = PSTORE.GetBackend(i)->Open();
+    // assert(s.ok());
     auto f = std::async(std::launch::async, [&path_temp]() { pstd::DeleteDir(path_temp); });
     PSTORE.GetBackend(i).get()->UnLock();
   }
@@ -209,8 +210,7 @@ void InfoCmd::InfoRaft(PClient* client) {
     }
 
     for (int i = 0; i < peers.size(); i++) {
-      message += "raft_node" + std::to_string(i) + ":addr=" + butil::ip2str(peers[i].addr.ip).c_str() +
-                 ",port=" + std::to_string(peers[i].addr.port) + "\r\n";
+      message += fmt::format("raft_node{}:node_id={}\r\n", i, peers[i].to_string());
     }
   }
 

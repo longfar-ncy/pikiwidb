@@ -79,28 +79,57 @@ void ClusterCmdContext::ConnectTargetNode() {
   PREPL.SetMasterAddr(peer_ip_.c_str(), port_);
 }
 
-butil::Status PRaft::Init(const std::string& group_id, bool initial_conf_is_null) {
-  if (node_) {
-    return {0, "OK"};
-  }
+// butil::Status PRaft::Init(const std::string& group_id, bool initial_conf_is_null) {
+//   if (node_) {
+//     return {0, "OK"};
+//   }
 
-  // Default init in one node.
-  // initial_conf takes effect only when the replication group is started from an empty node.
-  // The Configuration is restored from the snapshot and log files when the data in the replication group is not empty.
-  //  initial_conf is used only to create replication groups.
-  //  The first node adds itself to initial_conf and then calls add_peer to add other nodes.
-  //  Set initial_conf to empty for other nodes.
-  //  You can also start empty nodes simultaneously by setting the same inital_conf(ip:port of multiple nodes) for
-  //  multiple nodes.
+//   // Default init in one node.
+//   // initial_conf takes effect only when the replication group is started from an empty node.
+//   // The Configuration is restored from the snapshot and log files when the data in the replication group is not
+//   empty.
+//   //  initial_conf is used only to create replication groups.
+//   //  The first node adds itself to initial_conf and then calls add_peer to add other nodes.
+//   //  Set initial_conf to empty for other nodes.
+//   //  You can also start empty nodes simultaneously by setting the same inital_conf(ip:port of multiple nodes) for
+//   //  multiple nodes.
+//   braft::NodeOptions node_options;
+//   if (!initial_conf_is_null) {
+//     auto endpoint_str = butil::endpoint2str(PSTORE.GetEndPoint());
+//     std::string initial_conf = fmt::format("{}:0,", endpoint_str.c_str());
+//     if (node_options.initial_conf.parse_from(initial_conf) != 0) {
+//       return ERROR_LOG_AND_STATUS("Failed to parse configuration");
+//     }
+//   }
+
+//   node_options.fsm = this;
+//   node_options.node_owns_fsm = false;
+//   node_options.snapshot_interval_s = 0;
+//   auto prefix = fmt::format("local://{}{}/{}", g_config.db_path.ToString(), "_praft", db_id_);
+//   node_options.log_uri = prefix + "/log";
+//   node_options.raft_meta_uri = prefix + "/raft_meta";
+//   node_options.snapshot_uri = prefix + "/snapshot";
+//   snapshot_adaptor_ = new PPosixFileSystemAdaptor();
+//   node_options.snapshot_file_system_adaptor = &snapshot_adaptor_;
+
+//   // node_options_.election_timeout_ms = FLAGS_election_timeout_ms;
+//   // node_options_.disable_cli = FLAGS_disable_cli;
+
+//   node_ = std::make_unique<braft::Node>(group_id, braft::PeerId(PSTORE.GetEndPoint(), db_id_));  // group_id
+//   if (node_->init(node_options) != 0) {
+//     node_.reset();
+//     return ERROR_LOG_AND_STATUS("Failed to init raft node");
+//   }
+//   group_id_ = group_id;
+
+//   INFO("Initialized praft successfully: node_id={}", GetNodeID());
+//   return {0, "OK"};
+// }
+butil::Status PRaft::Init(const std::string& group_id, braft::Configuration& init_conf) {
+  assert(!node_);
+
   braft::NodeOptions node_options;
-  if (!initial_conf_is_null) {
-    auto endpoint_str = butil::endpoint2str(PSTORE.GetEndPoint());
-    std::string initial_conf = fmt::format("{}:0,", endpoint_str.c_str());
-    if (node_options.initial_conf.parse_from(initial_conf) != 0) {
-      return ERROR_LOG_AND_STATUS("Failed to parse configuration");
-    }
-  }
-
+  node_options.initial_conf = init_conf;
   node_options.fsm = this;
   node_options.node_owns_fsm = false;
   node_options.snapshot_interval_s = 0;
@@ -355,7 +384,10 @@ bool PRaft::InitializeNodeBeforeAdd(PClient* client, PClient* join_client, const
 
   std::string raft_group_id = reply.substr(group_id_start, group_id_end - group_id_start);
   // initialize the slave node
-  auto s = Init(raft_group_id, true);
+  assert(0);  // do not support init by user
+  butil::Status s;
+  // auto s = Init(raft_group_id, true);
+  // TODO(longfar): remove assertion
   if (!s.ok()) {
     join_client->SetRes(CmdRes::kErrOther, s.error_str());
     join_client->SendPacket(join_client->Message());

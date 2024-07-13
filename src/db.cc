@@ -11,6 +11,8 @@
 #include "praft/praft.h"
 #include "pstd/log.h"
 
+#include "store.h"
+
 extern pikiwidb::PConfig g_config;
 
 namespace pikiwidb {
@@ -22,7 +24,7 @@ DB::DB(int db_index, const std::string& db_path)
 
 DB::~DB() { INFO("DB{} is closing...", db_index_); }
 
-rocksdb::Status DB::Open() {
+rocksdb::Status DB::Open(const std::string& group_id, const std::string& init_conf_str) {
   storage::StorageOptions storage_options;
   storage_options.options = g_config.GetRocksDBOptions();
   storage_options.table_options = g_config.GetRocksDBBlockBasedTableOptions();
@@ -55,6 +57,13 @@ rocksdb::Status DB::Open() {
     ERROR("Storage open failed! {}", s.ToString());
     abort();
   }
+
+  // init praft
+  braft::Configuration conf;
+  auto res = conf.parse_from(init_conf_str);
+  assert(res == 0);
+  auto s = praft_->Init(group_id, conf);
+  assert(s.ok());
 
   opened_ = true;
   INFO("Open DB{} success!", db_index_);

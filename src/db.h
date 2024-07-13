@@ -20,7 +20,7 @@ class DB {
   DB(int db_index, const std::string& db_path);
   ~DB();
 
-  rocksdb::Status Open();
+  rocksdb::Status Open(const std::string& group_id, const std::string& init_conf_str);
 
   std::unique_ptr<storage::Storage>& GetStorage() { return storage_; }
 

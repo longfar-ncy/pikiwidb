@@ -22,14 +22,7 @@ PStore& PStore::Instance() {
 }
 
 void PStore::Init(int db_number) {
-  db_number_ = db_number;
-  backends_.reserve(db_number_);
-  for (int i = 0; i < db_number_; i++) {
-    auto db = std::make_unique<DB>(i, g_config.db_path);
-    db->Open();
-    backends_.push_back(std::move(db));
-    INFO("Open DB_{} success!", i);
-  }
+  // initialize rpc server
   auto ip = g_config.ip.ToString();
   butil::ip_t rpc_ip;
   butil::str2ip(ip.c_str(), &rpc_ip);
@@ -43,6 +36,20 @@ void PStore::Init(int db_number) {
     return ERROR("Failed to start rpc server");
   }
   INFO("Started RPC server successfully");
+
+  assert(g_config.group_ids_.size() == 2);
+  std::vector<std::string> confs{"127.0.0.1:9231:0,127.0.0.1:9331:0,127.0.0.1:9431:1",
+                                 "127.0.0.1:9231:1,127.0.0.1:9331:1,127.0.0.1:9431:0"};
+  // initialize dbs
+  db_number_ = db_number;
+  backends_.reserve(db_number_);
+  for (int i = 0; i < db_number_; i++) {
+    auto db = std::make_unique<DB>(i, g_config.db_path);
+    db->Open(g_config.group_ids_[i], confs[i]);
+    backends_.push_back(std::move(db));
+    INFO("Open DB_{} success!", i);
+  }
+
   INFO("STORE Init success!");
 }
 

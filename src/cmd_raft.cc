@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 
+#include "butil/status.h"
 #include "praft/praft.h"
 #include "pstd/log.h"
 #include "pstd/pstd_string.h"
@@ -180,7 +181,10 @@ void RaftClusterCmd::DoCmdInit(PClient* client) {
   } else {
     group_id = pstd::RandomHexChars(RAFT_GROUPID_LEN);
   }
-  auto s = praft_->Init(group_id, false);
+  // TODO(longfar): remove assertion
+  assert(0);  // do not support init by user
+  // auto s = praft_->Init(group_id, false);
+  butil::Status s;
   if (!s.ok()) {
     return client->SetRes(CmdRes::kErrOther, fmt::format("Failed to init node: {}", s.error_str()));
   }
@@ -220,7 +224,10 @@ void RaftClusterCmd::DoCmdJoin(PClient* client) {
   auto addr = client->argv_[3];
 
   // init raft
-  auto s = praft_->Init(group_id, true);
+  // TODO(longfar): remove assertion
+  assert(0);  // do not support init by user
+  // auto s = praft_->Init(group_id);
+  butil::Status s;
   assert(s.ok());
 
   if (braft::PeerId(addr).is_empty()) {

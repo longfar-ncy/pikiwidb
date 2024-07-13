@@ -99,7 +99,7 @@ class PRaft : public braft::StateMachine {
   //===--------------------------------------------------------------------===//
   // Braft API
   //===--------------------------------------------------------------------===//
-  butil::Status Init(const std::string& group_id, bool initial_conf_is_null);
+  butil::Status Init(const std::string& group_id, braft::Configuration& init_conf);  // for follower
   butil::Status AddPeer(const std::string& peer);
   butil::Status RemovePeer(const std::string& peer);
   butil::Status DoSnapshot(int64_t self_snapshot_index = 0, bool is_sync = true);
