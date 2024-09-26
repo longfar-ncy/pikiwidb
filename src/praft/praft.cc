@@ -521,7 +521,8 @@ butil::Status PRaft::AddPeer(const std::string& endpoint, int index) {
   done.wait();
 
   if (!done.status().ok()) {
-    WARN("Failed to add peer {} to node {}, status: {}", ep, node_->node_id().to_string(), done.status().error_str());
+    // WARN("Failed to add peer {} to node {}, status: {}", ep, node_->node_id().to_string(),
+    // done.status().error_str());
     return done.status();
   }
   return done.status();

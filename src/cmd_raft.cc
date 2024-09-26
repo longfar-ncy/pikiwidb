@@ -249,40 +249,63 @@ void RaftClusterCmd::DoCmdJoin(PClient* client) {
   options.max_retry = 0;
   options.connect_timeout_ms = kChannelTimeoutMS;
 
-  brpc::Channel add_node_channel;
-  if (0 != add_node_channel.Init(endpoint, &options)) {
-    PSTORE.RemoveRegion(group_id);
-    ClearPaftCtx();
-    ERROR("Fail to init add_node_channel to praft service!");
-    client->SetRes(CmdRes::kErrOther, "Fail to init add_node_channel.");
-    return;
-  }
-
-  brpc::Controller cntl;
   NodeAddRequest request;
   NodeAddResponse response;
+
   auto end_point = butil::endpoint2str(PSTORE.GetEndPoint()).c_str();
-  request.set_groupid(group_id);
+  request.set_group_id(group_id);
   request.set_endpoint(std::string(end_point));
   request.set_index(client->GetCurrentDB());
   request.set_role(0);
-  PRaftService_Stub stub(&add_node_channel);
-  stub.AddNode(&cntl, &request, &response, NULL);
 
-  if (cntl.Failed()) {
-    PSTORE.RemoveRegion(group_id);
-    ClearPaftCtx();
-    ERROR("Fail to send add node rpc to target server {}", addr);
-    client->SetRes(CmdRes::kErrOther, "Failed to send add node rpc");
-    return;
-  }
-  if (response.success()) {
-    client->SetRes(CmdRes::kOK, "Add Node Success");
-    return;
-  }
+  int retry_count = 0;
+
+  do {
+    brpc::Channel add_node_channel;
+    if (0 != add_node_channel.Init(endpoint, &options)) {
+      PSTORE.RemoveRegion(group_id);
+      ClearPaftCtx();
+      ERROR("Fail to init add_node_channel to praft service!");
+      client->SetRes(CmdRes::kErrOther, "Fail to init add_node_channel.");
+      return;
+    }
+
+    brpc::Controller cntl;
+    PRaftService_Stub stub(&add_node_channel);
+    stub.AddNode(&cntl, &request, &response, NULL);
+
+    if (cntl.Failed()) {
+      PSTORE.RemoveRegion(group_id);
+      ClearPaftCtx();
+      ERROR("Fail to send add node rpc to target server {}", addr);
+      client->SetRes(CmdRes::kErrOther, "Failed to send add node rpc");
+      return;
+    }
+
+    if (response.success()) {
+      client->SetRes(CmdRes::kOK, "Add Node Success");
+      return;
+    }
+
+    switch (response.error_code()) {
+      case PRaftErrorCode::kErrorReDirect: {
+        butil::str2endpoint(response.leader_endpoint().c_str(), &endpoint);
+        endpoint.port += g_config.raft_port_offset;
+        break;
+      }
+      default: {
+        ERROR("Add node request return false");
+        PSTORE.RemoveRegion(group_id);
+        ClearPaftCtx();
+        client->SetRes(CmdRes::kErrOther, "Failed to Add Node");
+        return;
+      }
+    }
+  } while (!response.success() && ++retry_count <= 3);
+
+  ERROR("Add node request return false");
   PSTORE.RemoveRegion(group_id);
   ClearPaftCtx();
-  ERROR("Add node request return false");
   client->SetRes(CmdRes::kErrOther, "Failed to Add Node");
 }
 
