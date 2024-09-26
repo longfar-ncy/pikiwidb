@@ -71,6 +71,7 @@ void ClusterCmdContext::ConnectTargetNode() {
   auto ip = PREPL.GetMasterAddr().GetIP();
   auto port = PREPL.GetMasterAddr().GetPort();
   if (ip == peer_ip_ && port == port_ && PREPL.GetMasterState() == kPReplStateConnected) {
+    std::cout<<"已经建立连接了, 直接发送" <<std::endl;
     praft_->SendNodeRequest(PREPL.GetMaster());
     return;
   }
@@ -101,7 +102,7 @@ butil::Status PRaft::Init(const std::string& group_id, bool initial_conf_is_null
   braft::NodeOptions node_options;
   if (!initial_conf_is_null) {
     auto endpoint_str = butil::endpoint2str(PSTORE.GetEndPoint());
-    std::string initial_conf = fmt::format("{}:0,", endpoint_str.c_str());
+    std::string initial_conf = fmt::format("{}:{},", endpoint_str.c_str(), db_id_);
     if (node_options.initial_conf.parse_from(initial_conf) != 0) {
       return ERROR_LOG_AND_STATUS("Failed to parse configuration");
     }
@@ -253,8 +254,8 @@ void PRaft::SendNodeRequest(PClient* client) {
   switch (cluster_cmd_type) {
     case ClusterCmdType::kJoin: {
       // SendNodeInfoRequest(client, "DATA");
-      SendNodeInfoRequest(client, "DATA");
-      // SendNodeAddRequest(client);
+      // SendNodeInfoRequest(client, "DATA");
+      SendNodeAddRequest(client);
     } break;
     case ClusterCmdType::kRemove:
       SendNodeRemoveRequest(client);
@@ -279,7 +280,7 @@ void PRaft::SendNodeAddRequest(PClient* client) {
 
   // Node id in braft are ip:port, the node id param in RAFT.NODE ADD cmd will be ignored.
   auto port = g_config.port + pikiwidb::g_config.raft_port_offset;
-  auto raw_addr = g_config.ip.ToString() + ":" + std::to_string(port);
+  auto raw_addr = g_config.ip.ToString() + ":" + std::to_string(port) + ":" + std::to_string(db_id_);
   auto msg = fmt::format("RAFT.NODE ADD {} {}\r\n", group_id_, raw_addr);
   client->SendPacket(std::move(msg));
   INFO("Sent join request to leader successfully");
@@ -506,6 +507,26 @@ butil::Status PRaft::AddPeer(const std::string& peer) {
   }
 
   return {0, "OK"};
+}
+
+butil::Status PRaft::AddPeer(const std::string& endpoint, int index) {
+   if (!node_) {
+    ERROR_LOG_AND_STATUS("Node is not initialized");
+  }
+
+  braft::SynchronizedClosure done;
+  butil::EndPoint ep;
+  butil::str2endpoint(endpoint.c_str(), &ep);
+  braft::PeerId peer_id(ep, index);
+  node_->add_peer(peer_id, &done);
+  done.wait();
+
+  if (!done.status().ok()) {
+    // WARN("Failed to add peer {} to node {}, status: {}", end_point, node_->node_id().to_string(), done.status().error_str());
+    WARN("Failed to add");
+    return done.status();
+  }
+  return done.status();
 }
 
 butil::Status PRaft::RemovePeer(const std::string& peer) {

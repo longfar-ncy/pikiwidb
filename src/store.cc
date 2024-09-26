@@ -14,9 +14,9 @@
 #include "db.h"
 #include "pstd/log.h"
 #include "pstd/pstd_string.h"
+#include "praft/praft_service.h"
 
 namespace pikiwidb {
-
 PStore::~PStore() { INFO("STORE is closing..."); }
 
 PStore& PStore::Instance() {
@@ -33,6 +33,7 @@ void PStore::Init(int db_number) {
     backends_.push_back(std::move(db));
     INFO("Open DB_{} success!", i);
   }
+  
   auto ip = g_config.ip.ToString();
   butil::ip_t rpc_ip;
   butil::str2ip(ip.c_str(), &rpc_ip);
@@ -42,6 +43,10 @@ void PStore::Init(int db_number) {
   if (braft::add_service(GetRpcServer(), endpoint_) != 0) {
     return ERROR("Failed to add raft service to rpc server");
   }
+  if (0 != rpc_server_->AddService(dynamic_cast<google::protobuf::Service *>(praft_service_.get()), brpc::SERVER_OWNS_SERVICE)) {
+    return ERROR("Failed to add praft service to rpc server");
+  }
+  
   if (rpc_server_->Start(endpoint_, nullptr) != 0) {
     return ERROR("Failed to start rpc server");
   }

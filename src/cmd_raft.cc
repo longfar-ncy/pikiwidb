@@ -15,10 +15,13 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <fmt/format.h>
 
 #include "praft/praft.h"
 #include "pstd/log.h"
 #include "pstd/pstd_string.h"
+#include "brpc/channel.h"
+#include "praft.pb.h"
 
 #include "client.h"
 #include "config.h"
@@ -187,11 +190,11 @@ void RaftClusterCmd::DoCmdInit(PClient* client) {
   } else {
     group_id = pstd::RandomHexChars(RAFT_GROUPID_LEN);
   }
+  PSTORE.AddRegion(group_id, client->GetCurrentDB());
   auto s = praft_->Init(group_id, false);
   if (!s.ok()) {
     return client->SetRes(CmdRes::kErrOther, fmt::format("Failed to init node: {}", s.error_str()));
   }
-  PSTORE.AddRegion(praft_->GetGroupID(), client->GetCurrentDB());
   client->SetLineString(fmt::format("+OK {}", group_id));
 }
 
@@ -207,48 +210,61 @@ static inline std::optional<std::pair<std::string, int32_t>> GetIpAndPortFromEnd
 }
 
 void RaftClusterCmd::DoCmdJoin(PClient* client) {
-  // If the node has been initialized, it needs to close the previous initialization and rejoin the other group
-  if (praft_->IsInitialized()) {
-    return client->SetRes(CmdRes::kErrOther,
-                          "A node that has been added to a cluster must be removed \
-      from the old cluster before it can be added to the new cluster");
-  }
-
-  // if (client->argv_.size() < 3) {
-  //   return client->SetRes(CmdRes::kWrongNum, client->CmdName());
-  // }
-
-  // // (KKorpse)TODO: Support multiple nodes join at the same time.
-  // if (client->argv_.size() > 3) {
-  //   return client->SetRes(CmdRes::kInvalidParameter, "Too many arguments");
-  // }
   assert(client->argv_.size() == 4);
   auto group_id = client->argv_[2];
   auto addr = client->argv_[3];
 
-  // init raft
-  auto s = praft_->Init(group_id, true);
-  assert(s.ok());
-
-  if (braft::PeerId(addr).is_empty()) {
-    return client->SetRes(CmdRes::kErrOther, fmt::format("Invalid ip::port: {}", addr));
+  if (group_id.size() != RAFT_GROUPID_LEN) {
+    return client->SetRes(CmdRes::kInvalidParameter,
+                            "Cluster id must be " + std::to_string(RAFT_GROUPID_LEN) + " characters");
   }
-
   auto ip_port = GetIpAndPortFromEndPoint(addr);
   if (!ip_port.has_value()) {
     return client->SetRes(CmdRes::kErrOther, fmt::format("Invalid ip::port: {}", addr));
   }
-  auto& [peer_ip, port] = *ip_port;
+  auto& [ip, port] = *ip_port;
+  PSTORE.AddRegion(group_id, client->GetCurrentDB());
+  auto s = praft_->Init(group_id, true);
+  assert(s.ok());
 
-  // Connect target
-  auto ret = praft_->GetClusterCmdCtx().Set(ClusterCmdType::kJoin, client, std::move(peer_ip), port);
-  if (!ret) {  // other clients have joined
-    return client->SetRes(CmdRes::kErrOther, "Other clients have joined");
+  brpc::ChannelOptions options;
+  options.connection_type = brpc::CONNECTION_TYPE_SINGLE;
+  options.max_retry = 0;
+  options.connect_timeout_ms = 200;
+
+  brpc::Channel add_node_channel;
+  if (0 != add_node_channel.Init(addr.c_str(), &options)) {
+    ERROR("Fail to init add_node_channel to praft service!");
+    // 失败的情况下，应该取消 Init。
+    // 并且 Remove Region。
+    client->SetRes(CmdRes::kErrOther, "Fail to init channel.");
+    return;
   }
-  praft_->GetClusterCmdCtx().ConnectTargetNode();
+
+  brpc::Controller cntl;
+  NodeAddRequest request;
+  NodeAddResponse response;
+  auto end_point = fmt::format("{}:{}", ip, std::to_string(port));
+  request.set_groupid(group_id);
+  request.set_endpoint(end_point);
+  request.set_index(client->GetCurrentDB());
+  request.set_role(0); // 0 : !witness
+  PRaftService_Stub stub(&add_node_channel);
+  stub.AddNode(&cntl, &request, &response, NULL);
+  
+  if (cntl.Failed()) {
+    client->SetRes(CmdRes::kErrOther, "Failed to send add node rpc");
+    return;
+  }
+  if (response.success()) {
+    client->SetRes(CmdRes::kOK, "Add Node Success");
+    return;
+  }
+  // 这里需要删除 Region。并且取消 初始化 。
+  client->SetRes(CmdRes::kErrOther, "Failed to Add Node");  
 
   // Not reply any message here, we will reply after the connection is established.
-  client->Clear();
+  // client->Clear();
 }
 
 }  // namespace pikiwidb

@@ -14,7 +14,10 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+
 #include "praft/praft.h"
+#include "praft/praft_service.h"
+
 #define GLOG_NO_ABBREVIATED_SEVERITIES
 
 #include <memory>
@@ -26,6 +29,7 @@
 #include "db.h"
 
 namespace pikiwidb {
+class RaftServiceImpl;
 
 enum TaskType { kCheckpoint = 0, kLoadDBFromCheckpoint, kEmpty };
 
@@ -84,6 +88,7 @@ class PStore {
   int db_number_ = 0;
   std::vector<std::unique_ptr<DB>> backends_;
   butil::EndPoint endpoint_;
+  std::unique_ptr<PRaftServiceImpl> praft_service_{std::make_unique<PRaftServiceImpl>()};
   std::unique_ptr<brpc::Server> rpc_server_{std::make_unique<brpc::Server>()};
   std::unordered_map<std::string, uint32_t> db_map_;
 };
