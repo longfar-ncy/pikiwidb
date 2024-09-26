@@ -42,8 +42,8 @@ struct TaskContext {
   bool sync = false;
   TaskContext() = delete;
   TaskContext(TaskType t, bool s = false) : type(t), sync(s) {}
-  TaskContext(TaskType t, uint32_t d, bool s = false) : type(t), db(d), sync(s) {}
-  TaskContext(TaskType t, uint32_t d, const std::map<TaskArg, std::string>& a, bool s = false)
+  TaskContext(TaskType t, int32_t d, bool s = false) : type(t), db(d), sync(s) {}
+  TaskContext(TaskType t, int32_t d, const std::map<TaskArg, std::string>& a, bool s = false)
       : type(t), db(d), args(a), sync(s) {}
 };
 

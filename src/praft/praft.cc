@@ -114,7 +114,7 @@ butil::Status PRaft::Init(const std::string& group_id, bool initial_conf_is_null
   node_options.log_uri = prefix + "/log";
   node_options.raft_meta_uri = prefix + "/raft_meta";
   node_options.snapshot_uri = prefix + "/snapshot";
-  snapshot_adaptor_ = new PPosixFileSystemAdaptor();
+  snapshot_adaptor_ = new PPosixFileSystemAdaptor(this);
   node_options.snapshot_file_system_adaptor = &snapshot_adaptor_;
 
   // node_options_.election_timeout_ms = FLAGS_election_timeout_ms;

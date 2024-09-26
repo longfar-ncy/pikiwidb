@@ -11,31 +11,31 @@
    management of the PikiwiDB.
 
  */
+#include "cmd_admin.h"
 
 #include <sys/resource.h>
 #include <sys/statvfs.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
+
 #include <algorithm>
 #include <cctype>
-
 #include <cstddef>
 #include <cstdint>
+#include <iomanip>
 #include <optional>
 #include <string>
 #include <vector>
-#include "cmd_admin.h"
-#include "db.h"
 
 #include "braft/raft.h"
-#include "pstd_string.h"
 #include "rocksdb/version.h"
 
-#include "pikiwidb.h"
 #include "praft/praft.h"
 #include "pstd/env.h"
+#include "pstd/pstd_string.h"
 
-#include "cmd_table_manager.h"
+#include "db.h"
+#include "pikiwidb.h"
 #include "slow_log.h"
 #include "store.h"
 
@@ -242,7 +242,7 @@ void InfoCmd::DoCmd(PClient* client) {
       InfoCommandStats(client, info);
       break;
     case kInfoRaft:
-      InfoRaft(info);
+      InfoRaft(client);
       break;
     default:
       break;
@@ -329,8 +329,12 @@ void InfoCmd::InfoServer(std::string& info) {
 
   tmp_stream << "# Server\r\n";
   tmp_stream << "PikiwiDB_version:" << version << "\r\n";
+#ifdef KPIKIWIDB_GIT_COMMIT_ID
   tmp_stream << "PikiwiDB_build_git_sha:" << KPIKIWIDB_GIT_COMMIT_ID << "\r\n";
+#endif
+#ifdef KPIKIWIDB_BUILD_DATE
   tmp_stream << "Pikiwidb_build_compile_date: " << KPIKIWIDB_BUILD_DATE << "\r\n";
+#endif
   tmp_stream << "os:" << host_info.sysname << " " << host_info.release << " " << host_info.machine << "\r\n";
   tmp_stream << "arch_bits:" << (reinterpret_cast<char*>(&host_info.machine) + strlen(host_info.machine) - 2) << "\r\n";
   tmp_stream << "process_id:" << getpid() << "\r\n";
