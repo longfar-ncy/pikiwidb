@@ -15,17 +15,18 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <fmt/format.h>
+
+#include "brpc/channel.h"
+#include "fmt/format.h"
 
 #include "praft/praft.h"
 #include "pstd/log.h"
 #include "pstd/pstd_string.h"
-#include "brpc/channel.h"
-#include "praft.pb.h"
 
 #include "client.h"
 #include "config.h"
 #include "pikiwidb.h"
+#include "praft.pb.h"
 #include "replication.h"
 #include "store.h"
 
@@ -138,9 +139,7 @@ void RaftNodeCmd::DoCmdRemove(PClient* client) {
 }
 
 void RaftNodeCmd::DoCmdSnapshot(PClient* client) {
-  auto self_snapshot_index = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->GetSmallestFlushedLogIndex();
-  INFO("DoCmdSnapshot self_snapshot_index:{}", self_snapshot_index);
-  auto s = praft_->DoSnapshot(self_snapshot_index);
+  auto s = praft_->DoSnapshot();
   if (s.ok()) {
     client->SetRes(CmdRes::kOK);
   }
@@ -156,6 +155,7 @@ bool RaftClusterCmd::DoInitial(PClient* client) {
     client->SetRes(CmdRes::kErrOther, "RAFT.CLUSTER supports INIT/JOIN only");
     return false;
   }
+
   praft_ = PSTORE.GetBackend(client->GetCurrentDB())->GetPRaft();
   return true;
 }
@@ -190,12 +190,19 @@ void RaftClusterCmd::DoCmdInit(PClient* client) {
   } else {
     group_id = pstd::RandomHexChars(RAFT_GROUPID_LEN);
   }
-  PSTORE.AddRegion(group_id, client->GetCurrentDB());
-  auto s = praft_->Init(group_id, false);
-  if (!s.ok()) {
-    return client->SetRes(CmdRes::kErrOther, fmt::format("Failed to init node: {}", s.error_str()));
+
+  auto add_region_success = PSTORE.AddRegion(group_id, client->GetCurrentDB());
+  if (add_region_success) {
+    auto s = praft_->Init(group_id, false);
+    if (!s.ok()) {
+      PSTORE.RemoveRegion(group_id);
+      ClearPaftCtx();
+      return client->SetRes(CmdRes::kErrOther, fmt::format("Failed to init raft node: {}", s.error_str()));
+    }
+    client->SetLineString(fmt::format("+OK {}", group_id));
+  } else {
+    client->SetRes(CmdRes::kErrOther, fmt::format("The current GroupID {} already exists", group_id));
   }
-  client->SetLineString(fmt::format("+OK {}", group_id));
 }
 
 static inline std::optional<std::pair<std::string, int32_t>> GetIpAndPortFromEndPoint(const std::string& endpoint) {
@@ -213,46 +220,59 @@ void RaftClusterCmd::DoCmdJoin(PClient* client) {
   assert(client->argv_.size() == 4);
   auto group_id = client->argv_[2];
   auto addr = client->argv_[3];
+  butil::EndPoint endpoint;
+  if (0 != butil::str2endpoint(addr.c_str(), &endpoint)) {
+    ERROR("Wrong endpoint format: {}", addr);
+    return client->SetRes(CmdRes::kErrOther, "Wrong endpoint format");
+  }
+  endpoint.port += g_config.raft_port_offset;
 
   if (group_id.size() != RAFT_GROUPID_LEN) {
     return client->SetRes(CmdRes::kInvalidParameter,
-                            "Cluster id must be " + std::to_string(RAFT_GROUPID_LEN) + " characters");
+                          "Cluster id must be " + std::to_string(RAFT_GROUPID_LEN) + " characters");
   }
-  auto ip_port = GetIpAndPortFromEndPoint(addr);
-  if (!ip_port.has_value()) {
-    return client->SetRes(CmdRes::kErrOther, fmt::format("Invalid ip::port: {}", addr));
+
+  auto add_region_success = PSTORE.AddRegion(group_id, client->GetCurrentDB());
+  if (add_region_success) {
+    auto s = praft_->Init(group_id, false);
+    if (!s.ok()) {
+      PSTORE.RemoveRegion(group_id);
+      ClearPaftCtx();
+      return client->SetRes(CmdRes::kErrOther, fmt::format("Failed to init raft node: {}", s.error_str()));
+    }
+  } else {
+    client->SetRes(CmdRes::kErrOther, fmt::format("The current GroupID {} already exists", group_id));
   }
-  auto& [ip, port] = *ip_port;
-  PSTORE.AddRegion(group_id, client->GetCurrentDB());
-  auto s = praft_->Init(group_id, true);
-  assert(s.ok());
 
   brpc::ChannelOptions options;
   options.connection_type = brpc::CONNECTION_TYPE_SINGLE;
   options.max_retry = 0;
-  options.connect_timeout_ms = 200;
+  options.connect_timeout_ms = kChannelTimeoutMS;
 
   brpc::Channel add_node_channel;
-  if (0 != add_node_channel.Init(addr.c_str(), &options)) {
+  if (0 != add_node_channel.Init(endpoint, &options)) {
+    PSTORE.RemoveRegion(group_id);
+    ClearPaftCtx();
     ERROR("Fail to init add_node_channel to praft service!");
-    // 失败的情况下，应该取消 Init。
-    // 并且 Remove Region。
-    client->SetRes(CmdRes::kErrOther, "Fail to init channel.");
+    client->SetRes(CmdRes::kErrOther, "Fail to init add_node_channel.");
     return;
   }
 
   brpc::Controller cntl;
   NodeAddRequest request;
   NodeAddResponse response;
-  auto end_point = fmt::format("{}:{}", ip, std::to_string(port));
+  auto end_point = butil::endpoint2str(PSTORE.GetEndPoint()).c_str();
   request.set_groupid(group_id);
-  request.set_endpoint(end_point);
+  request.set_endpoint(std::string(end_point));
   request.set_index(client->GetCurrentDB());
-  request.set_role(0); // 0 : !witness
+  request.set_role(0);
   PRaftService_Stub stub(&add_node_channel);
   stub.AddNode(&cntl, &request, &response, NULL);
-  
+
   if (cntl.Failed()) {
+    PSTORE.RemoveRegion(group_id);
+    ClearPaftCtx();
+    ERROR("Fail to send add node rpc to target server {}", addr);
     client->SetRes(CmdRes::kErrOther, "Failed to send add node rpc");
     return;
   }
@@ -260,11 +280,17 @@ void RaftClusterCmd::DoCmdJoin(PClient* client) {
     client->SetRes(CmdRes::kOK, "Add Node Success");
     return;
   }
-  // 这里需要删除 Region。并且取消 初始化 。
-  client->SetRes(CmdRes::kErrOther, "Failed to Add Node");  
-
-  // Not reply any message here, we will reply after the connection is established.
-  // client->Clear();
+  PSTORE.RemoveRegion(group_id);
+  ClearPaftCtx();
+  ERROR("Add node request return false");
+  client->SetRes(CmdRes::kErrOther, "Failed to Add Node");
 }
 
+void RaftClusterCmd::ClearPaftCtx() {
+  assert(praft_);
+  praft_->ShutDown();
+  praft_->Join();
+  praft_->Clear();
+  praft_ = nullptr;
+}
 }  // namespace pikiwidb

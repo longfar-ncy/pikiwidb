@@ -71,7 +71,6 @@ void ClusterCmdContext::ConnectTargetNode() {
   auto ip = PREPL.GetMasterAddr().GetIP();
   auto port = PREPL.GetMasterAddr().GetPort();
   if (ip == peer_ip_ && port == port_ && PREPL.GetMasterState() == kPReplStateConnected) {
-    std::cout<<"已经建立连接了, 直接发送" <<std::endl;
     praft_->SendNodeRequest(PREPL.GetMaster());
     return;
   }
@@ -510,7 +509,7 @@ butil::Status PRaft::AddPeer(const std::string& peer) {
 }
 
 butil::Status PRaft::AddPeer(const std::string& endpoint, int index) {
-   if (!node_) {
+  if (!node_) {
     ERROR_LOG_AND_STATUS("Node is not initialized");
   }
 
@@ -522,8 +521,7 @@ butil::Status PRaft::AddPeer(const std::string& endpoint, int index) {
   done.wait();
 
   if (!done.status().ok()) {
-    // WARN("Failed to add peer {} to node {}, status: {}", end_point, node_->node_id().to_string(), done.status().error_str());
-    WARN("Failed to add");
+    WARN("Failed to add peer {} to node {}, status: {}", ep, node_->node_id().to_string(), done.status().error_str());
     return done.status();
   }
   return done.status();

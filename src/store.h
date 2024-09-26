@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 
@@ -68,19 +69,27 @@ class PStore {
   void HandleTaskSpecificDB(const TasksVector& tasks);
 
   int GetDBNumber() const { return db_number_; }
+
   brpc::Server* GetRpcServer() const { return rpc_server_.get(); }
+
   const butil::EndPoint& GetEndPoint() const { return endpoint_; }
-  void AddRegion(const std::string& group_id, uint32_t dbno) {
-    assert(!db_map_.contains(group_id));
-    db_map_.emplace(group_id, dbno);
-  }
-  DB* GetDBByGroupID(const std::string& group_id) const {
-    auto it = db_map_.find(group_id);
-    if (it == db_map_.end()) {
-      return nullptr;
-    }
-    return backends_[it->second].get();
-  }
+
+  /**
+   * return true if add group_id -> dbno into region_map_ success.
+   * return false if group_id -> dbno already exists in region_map_.
+   */
+  bool AddRegion(const std::string& group_id, uint32_t dbno);
+
+  /**
+   * return true if remove group_id -> dbno from region_map_ success.
+   * return false if group_id -> dbno do not exists in region_map_.
+   */
+  bool RemoveRegion(const std::string& group_id);
+
+  /**
+   * return nullptr if group_id -> dbno do not existed in region_map_.
+   */
+  DB* GetDBByGroupID(const std::string& group_id) const;
 
  private:
   PStore() = default;
@@ -90,7 +99,9 @@ class PStore {
   butil::EndPoint endpoint_;
   std::unique_ptr<PRaftServiceImpl> praft_service_{std::make_unique<PRaftServiceImpl>()};
   std::unique_ptr<brpc::Server> rpc_server_{std::make_unique<brpc::Server>()};
-  std::unordered_map<std::string, uint32_t> db_map_;
+
+  mutable std::shared_mutex rw_mutex_;
+  std::unordered_map<std::string, uint32_t> region_map_;
 };
 
 #define PSTORE PStore::Instance()
