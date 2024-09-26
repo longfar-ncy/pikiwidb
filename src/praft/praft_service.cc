@@ -37,7 +37,6 @@ void PRaftServiceImpl::AddNode(::google::protobuf::RpcController* controller, co
   if (!praft_ptr->IsLeader()) {
     response->set_success(false);
     response->set_error_code(static_cast<uint32_t>(PRaftErrorCode::kErrorReDirect));
-    std::cout << "leader addr = " << praft_ptr->GetLeaderAddress() << std::endl;
     response->set_leader_endpoint(praft_ptr->GetLeaderAddress());
     return;
   }
@@ -51,4 +50,46 @@ void PRaftServiceImpl::AddNode(::google::protobuf::RpcController* controller, co
   }
   response->set_success(true);
 }
+
+void PRaftServiceImpl::RemoveNode(::google::protobuf::RpcController* controller,
+                                  const ::pikiwidb::NodeRemoveRequest* request,
+                                  ::pikiwidb::NodeRemoveResponse* response, ::google::protobuf::Closure* done) {
+  brpc::ClosureGuard done_guard(done);
+  auto groupid = request->group_id();
+  auto end_point = request->endpoint();
+  auto index = request->index();
+  auto role = request->role();
+
+  auto db_ptr = PSTORE.GetDBByGroupID(groupid);
+  if (!db_ptr) {
+    response->set_success(false);
+    response->set_error_code(static_cast<uint32_t>(PRaftErrorCode::kErrorDisMatch));
+    response->set_leader_endpoint(end_point);
+    return;
+  }
+  auto praft_ptr = db_ptr->GetPRaft();
+  if (!praft_ptr) {
+    response->set_success(false);
+    response->set_error_code(static_cast<uint32_t>(PRaftErrorCode::kErrorDisMatch));
+    response->set_leader_endpoint(end_point);
+    return;
+  }
+
+  if (!praft_ptr->IsLeader()) {
+    response->set_success(false);
+    response->set_error_code(static_cast<uint32_t>(PRaftErrorCode::kErrorReDirect));
+    response->set_leader_endpoint(praft_ptr->GetLeaderAddress());
+    return;
+  }
+
+  auto status = praft_ptr->RemovePeer(end_point, index);
+  if (!status.ok()) {
+    response->set_success(false);
+    response->set_error_code(static_cast<uint32_t>(PRaftErrorCode::kErrorAddNode));
+    response->set_leader_endpoint(praft_ptr->GetLeaderAddress());
+    return;
+  }
+  response->set_success(true);
+}
+
 }  // namespace pikiwidb

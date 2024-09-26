@@ -17,6 +17,9 @@ class PRaftServiceImpl : public PRaftService {
   PRaftServiceImpl() = default;
   void AddNode(::google::protobuf::RpcController* controller, const ::pikiwidb::NodeAddRequest* request,
                ::pikiwidb::NodeAddResponse* response, ::google::protobuf::Closure* done);
+
+  void RemoveNode(::google::protobuf::RpcController* controller, const ::pikiwidb::NodeRemoveRequest* request,
+                  ::pikiwidb::NodeRemoveResponse* response, ::google::protobuf::Closure* done);
 };
 
 }  // namespace pikiwidb

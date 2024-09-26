@@ -546,6 +546,26 @@ butil::Status PRaft::RemovePeer(const std::string& peer) {
   return {0, "OK"};
 }
 
+butil::Status PRaft::RemovePeer(const std::string& endpoint, int index) {
+  if (!node_) {
+    return ERROR_LOG_AND_STATUS("Node is not initialized");
+  }
+
+  braft::SynchronizedClosure done;
+  butil::EndPoint ep;
+  butil::str2endpoint(endpoint.c_str(), &ep);
+  ep.port += g_config.raft_port_offset;
+  braft::PeerId peer_id(ep, index);
+  node_->remove_peer(peer_id, &done);
+  done.wait();
+
+  if (!done.status().ok()) {
+    WARN("Failed to remove peer, status: {}", done.status().error_str());
+    return done.status();
+  }
+  return done.status();
+}
+
 butil::Status PRaft::DoSnapshot(int64_t self_snapshot_index, bool is_sync) {
   if (!node_) {
     return ERROR_LOG_AND_STATUS("Node is not initialized");

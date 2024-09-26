@@ -104,6 +104,7 @@ class PRaft : public braft::StateMachine {
   butil::Status AddPeer(const std::string& peer);
   butil::Status AddPeer(const std::string& endpoint, int index);
   butil::Status RemovePeer(const std::string& peer);
+  butil::Status RemovePeer(const std::string& endpoint, int index);
   butil::Status DoSnapshot(int64_t self_snapshot_index = 0, bool is_sync = true);
 
   void ShutDown();
