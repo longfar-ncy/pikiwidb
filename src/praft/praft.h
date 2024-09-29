@@ -166,8 +166,8 @@ class PRaft : public braft::StateMachine {
 
   scoped_refptr<braft::FileSystemAdaptor> snapshot_adaptor_ = nullptr;
   ClusterCmdContext cluster_cmd_ctx_{this};  // context for cluster join/remove command
-  std::string group_id_;               // group id
-  int db_id_ = 0;                      // db_id
+  std::string group_id_;                     // group id
+  int db_id_ = 0;                            // db_id
 
   bool is_node_first_start_up_ = true;
 };

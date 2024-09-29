@@ -9,8 +9,8 @@
 
 #include "base_cmd.h"
 
-#include "pstd/log.h"
 #include "praft/praft.h"
+#include "pstd/log.h"
 
 #include "config.h"
 #include "pikiwidb.h"
