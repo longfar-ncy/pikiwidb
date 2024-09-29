@@ -242,7 +242,7 @@ void InfoCmd::DoCmd(PClient* client) {
       InfoCommandStats(client, info);
       break;
     case kInfoRaft:
-      InfoRaft(client);
+      InfoRaft(client, info);
       break;
     default:
       break;
@@ -265,7 +265,7 @@ void InfoCmd::DoCmd(PClient* client) {
     raft_num_voting_nodes:2
     raft_node1:id=1733428433,state=connected,voting=yes,addr=localhost,port=5001,last_conn_secs=5,conn_errors=0,conn_oks=1
 */
-void InfoCmd::InfoRaft(PClient* client) {
+void InfoCmd::InfoRaft(PClient* client, std::string& message) {
   if (client->argv_.size() != 2) {
     return client->SetRes(CmdRes::kWrongNum, client->CmdName());
   }
@@ -277,7 +277,6 @@ void InfoCmd::InfoRaft(PClient* client) {
   }
 
   auto node_status = praft_->GetNodeStatus();
-  std::string message;
   if (node_status.state == braft::State::STATE_END) {
     message += "-ERR Node is not initialized.\r\n";
     return;
