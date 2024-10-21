@@ -509,6 +509,7 @@ butil::Status PRaft::AddPeer(const std::string& endpoint, int index) {
 
   braft::SynchronizedClosure done;
   butil::EndPoint ep;
+  ep.port += g_config.raft_port_offset;
   butil::str2endpoint(endpoint.c_str(), &ep);
   braft::PeerId peer_id(ep, index);
   node_->add_peer(peer_id, &done);
