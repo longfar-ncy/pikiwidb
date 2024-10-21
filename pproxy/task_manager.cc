@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <sstream>
 
+#include "threadpool.h"
+
 Task::Status Task::TextToStatus(const std::string& input) {
   if (input == "pending") {
     return Task::pending;
@@ -45,47 +47,47 @@ TaskManager::TaskManager(std::shared_ptr<Threadpool> threadpool, size_t maxWorke
 
 std::future<void> TaskManager::stop() {
   auto task = std::make_shared<std::packaged_task<void()>>([this] {
-    std::unique_lock<std::mutex> guard(_mutex);
-    bool isLast = _workerCount == 1;
+    std::unique_lock<std::mutex> guard(mutex_);
+    bool isLast = workerCount_ == 1;
 
     // Guarantee that the task finishes last.
     while (!isLast) {
       guard.unlock();
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       guard.lock();
-      isLast = _workerCount == 1;
+      isLast = workerCount_ == 1;
     }
   });
   auto future = task->get_future();
 
   // Adding a new task and expecting the future guarantees that the last batch of tasks is being executed.
   auto functor = [task = std::move(task)]() mutable { (*task)(); };
-  std::lock_guard<std::mutex> guard(_mutex);
+  std::lock_guard<std::mutex> guard(mutex_);
 
-  _stopped = true;
-  _tasks.emplace(std::move(functor));
+  stopped_ = true;
+  tasks_.emplace(std::move(functor));
   this->processTasks();
 
   return future;
 }
 
 void TaskManager::addTask(std::function<void()> functor) {
-  std::lock_guard<std::mutex> guard(_mutex);
+  std::lock_guard<std::mutex> guard(mutex_);
 
-  if (_stopped) {
+  if (stopped_) {
     return;
   }
-  _tasks.emplace(std::move(functor), Clock::now());
+  tasks_.emplace(std::move(functor), Clock::now());
   this->processTasks();
 }
 
 void TaskManager::processTasks() {
-  if (_tasks.empty() || _workerCount == _maxWorkers) {
+  if (tasks_.empty() || workerCount_ == maxWorkers_) {
     return;
   }
-  auto task = std::move(_tasks.front());
-  _tasks.pop();
+  auto task = std::move(tasks_.front());
+  tasks_.pop();
 
-  ++_workerCount;
-  _threadpool->execute(std::move(task));
+  ++workerCount_;
+  threadpool_->execute(std::move(task));
 }

@@ -56,9 +56,9 @@ class TaskManager {
     auto functor = [this, task = std::move(task)]() mutable {
       (*task)();
       {
-        std::lock_guard<std::mutex> guard(_mutex);
+        std::lock_guard<std::mutex> guard(mutex_);
 
-        --_workerCount;
+        --workerCount_;
         this->processTasks();
       }
     };
@@ -72,10 +72,10 @@ class TaskManager {
   void processTasks();
 
  private:
-  std::shared_ptr<::Threadpool> _threadpool;
-  std::queue<Task> _tasks;
-  std::mutex _mutex;
-  size_t _maxWorkers;
-  size_t _workerCount{0};
-  bool _stopped{false};
+  std::shared_ptr<::Threadpool> threadpool_;
+  std::queue<Task> tasks_;
+  std::mutex mutex_;
+  size_t maxWorkers_;
+  size_t workerCount_{0};
+  bool stopped_{false};
 };

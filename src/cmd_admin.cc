@@ -171,11 +171,6 @@ const std::string InfoCmd::kRaftSection = "raft";
 
 InfoCmd::InfoCmd(const std::string& name, int16_t arity) : BaseCmd(name, arity, kCmdFlagsAdmin, kAclCategoryAdmin) {}
 
-// bool InfoCmd::DoInitial(PClient* client) {
-//   praft_ = PSTORE.GetBackend(client->GetCurrentDB())->GetPRaft();
-//   return true;
-// }
-
 bool InfoCmd::DoInitial(PClient* client) {
   size_t argc = client->argv_.size();
   if (argc == 1) {
@@ -183,11 +178,11 @@ bool InfoCmd::DoInitial(PClient* client) {
     return true;
   }
 
-  std::string argv_ = client->argv_[1];
+  auto argv = client->argv_[1];
   // convert section to lowercase
-  std::transform(argv_.begin(), argv_.end(), argv_.begin(), [](unsigned char c) { return std::tolower(c); });
+  std::transform(argv.begin(), argv.end(), argv.begin(), [](unsigned char c) { return std::tolower(c); });
   if (argc == 2) {
-    auto it = sectionMap.find(argv_);
+    auto it = sectionMap.find(argv);
     if (it != sectionMap.end()) {
       info_section_ = it->second;
     } else {

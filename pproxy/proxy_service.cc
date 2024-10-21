@@ -7,33 +7,56 @@
 
 #include "proxy_service.h"
 
+#include <array>
+#include <memory>
+#include <string>
+
 namespace pikiwidb::proxy {
 void ProxyServiceImpl::RunCommand(::google::protobuf::RpcController* cntl,
                                   const pikiwidb::proxy::RunCommandRequest* request,
                                   pikiwidb::proxy::RunCommandResponse* response, ::google::protobuf::Closure* done) {
-  std::string command = request->command();
+  std::string command = request->command();  // 检查命令是否在白名单中
+
+  if (!IsCommandAllowed(command)) {
+    response->set_error("Command not allowed");
+    done->Run();
+    return;
+  }
+
   std::string output = ExecuteCommand(command);
-
-  response->set_output(output);
-
+  if (output.empty()) {
+    response->set_error("Command execution failed");
+  } else {
+    response->set_output(output);
+  }
   done->Run();
 }
+
 void ProxyServiceImpl::GetRouteINfo(::google::protobuf::RpcController* cntl,
                                     const pikiwidb::proxy::GetRouteInfoRequest* request,
                                     pikiwidb::proxy::GetRouteInfoResponse* response,
-                                    ::google::protobuf::Closure* done) {
-}
+                                    ::google::protobuf::Closure* done) {}
 
 std::string ProxyServiceImpl::ExecuteCommand(const std::string& command) {
+  if (!IsCommandAllowed(command)) {
+    return "Command not allowed";
+  }
+
   std::array<char, 128> buffer;
   std::string result;
-
-  // 使用 popen 执行命令
   std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.c_str(), "r"), pclose);
   if (!pipe) {
-    return "popen() failed!";
+    return "Failed to execute command";
   }
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+
+  while (true) {
+    if (fgets(buffer.data(), buffer.size(), pipe.get()) == nullptr) {
+      if (feof(pipe.get())) {
+        break;
+      } else {
+        return "Error reading command output";
+      }
+    }
     result += buffer.data();
   }
   return result;

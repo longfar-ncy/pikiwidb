@@ -67,9 +67,9 @@ void RaftNodeCmd::DoCmdAdd(PClient* client) {
   DEBUG("Received RAFT.NODE ADD cmd from {}", client->PeerIP());
   auto db = PSTORE.GetDBByGroupID(group_id_);
   assert(db);
-  auto praft = db->GetPRaft();
+  auto leader = db->GetPRaft();
   // Check whether it is a leader. If it is not a leader, return the leader information
-  if (!praft->IsLeader()) {
+  if (!leader->IsLeader()) {
     client->SetRes(CmdRes::kWrongLeader, praft_->GetLeaderID());
     return;
   }
@@ -81,7 +81,7 @@ void RaftNodeCmd::DoCmdAdd(PClient* client) {
 
   // RedisRaft has nodeid, but in Braft, NodeId is IP:Port.
   // So we do not need to parse and use nodeid like redis;
-  auto s = praft->AddPeer(client->argv_[3]);
+  auto s = leader->AddPeer(client->argv_[3]);
   if (s.ok()) {
     client->SetRes(CmdRes::kOK);
   } else {

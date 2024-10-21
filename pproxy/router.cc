@@ -7,6 +7,7 @@
 
 #include "router.h"
 #include <cstring>
+#include <memory>
 
 Router::Router() {
   // maximum 100 parameters
@@ -59,7 +60,7 @@ void Router::add(const std::vector<std::string> &route, short handler) {
   Node *parent = tree;
   for (const std::string &node : route) {
     if (parent->children.find(node) == parent->children.end()) {
-      parent->children[node] = new Node({node, {}, handler});
+      parent->children[node] = std::shared_ptr<Node>(new Node({node, {}, handler}));
     }
     parent = parent->children[node];
   }

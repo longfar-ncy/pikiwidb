@@ -1,8 +1,11 @@
-syntax="proto3";
+syntax = "proto3";
 package pikiwidb;
 option cc_generic_services = true;
 
-import "store.proto";
+message Peer {
+  string group_id = 1;
+  int32 cluster_idx = 2;
+};
 
 message GetClusterInfoRequest {
 };
@@ -22,8 +25,8 @@ message Store {
 
 message Region {
   int64 region_id = 1;
-  optional string start_key = 2;
-  optional string end_key = 3;
+  string start_key = 2;
+  string end_key = 3;
   repeated RegionEpoch region_epoch = 4;
   repeated Peer peers = 5;
 };
@@ -37,6 +40,12 @@ enum StoreState {
   UP = 0;
   OFFLINE = 1;
   TOMBSTONE = 2;
+};
+
+message RegionOptions {
+  string start_key = 1;
+  string end_key = 2;
+  int32 max_data_size = 3;
 };
 
 message CreateAllRegionsRequest {

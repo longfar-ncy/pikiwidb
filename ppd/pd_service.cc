@@ -8,6 +8,7 @@
 #include "pd_service.h"
 
 #include "pd_server.h"
+#include "spdlog/spdlog.h"
 
 namespace pikiwidb {
 void PlacementDriverServiceImpl::CreateAllRegions(::google::protobuf::RpcController* controller,
@@ -32,6 +33,7 @@ void PlacementDriverServiceImpl::AddStore(::google::protobuf::RpcController* con
 
   response->set_success(true);
   response->set_store_id(store_id);
+  spdlog::info("add store success: {}", store_id);
 }
 
 void PlacementDriverServiceImpl::RemoveStore(::google::protobuf::RpcController* controller,

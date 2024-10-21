@@ -5,23 +5,35 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
+#include "brpc/server.h"
+#include "gflags/gflags.h"
+#include "spdlog/spdlog.h"
+
 #include "proxy_service.h"
 
-int main(int argc, char* argv[]) {
-  brpc::Server server;
+DEFINE_int32(port, 8080, "Port of rpc server");
+DEFINE_int32(idle_timeout_s, 60,
+             "Connection will be closed if there is no "
+             "read/write operations during the last `idle_timeout_s`");
+DEFINE_int32(max_concurrency, 0, "Limit of request processing in parallel");
 
+int main(int argc, char* argv[]) {
+  GFLAGS_NS::ParseCommandLineFlags(&argc, &argv, true);
+  brpc::Server server;
   ProxyServiceImpl service;
   if (server.AddService(&service, brpc::SERVER_OWNS_SERVICE) != 0) {
-    fprintf(stderr, "Fail to add service!\n");
+    spdlog::error("Failed to add service for: {}", berror());
     return -1;
   }
 
-  // 启动服务
-  if (server.Start(8080, nullptr) != 0) {
-    fprintf(stderr, "Fail to start server!\n");
+  brpc::ServerOptions options;
+  options.idle_timeout_sec = FLAGS_idle_timeout_s;
+  options.max_concurrency = FLAGS_max_concurrency;
+
+  if (server.Start(FLAGS_port, &options) != 0) {
+    spdlog::error("Failed to start server for: {}", berror());
     return -1;
   }
 
   server.RunUntilAskedToQuit();
-  return 0;
 }

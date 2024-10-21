@@ -9,6 +9,7 @@
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,11 +30,11 @@ class Router {
 
   struct Node {
     std::string name;
-    std::map<std::string, Node *> children;
+    std::map<std::string, std::shared_ptr<Node>> children;
     short handler;
   };
 
-  Node *tree = new Node({"GET", {}, -1});
+  std::shared_ptr<Node> tree = std::shared_ptr<Node>(new Node({"GET", {}, -1}));
   std::string compiled_tree;
 
   void add(const std::vector<std::string> &route, short handler);
