@@ -252,8 +252,6 @@ void PRaft::SendNodeRequest(PClient* client) {
   auto cluster_cmd_type = cluster_cmd_ctx_.GetClusterCmdType();
   switch (cluster_cmd_type) {
     case ClusterCmdType::kJoin: {
-      // SendNodeInfoRequest(client, "DATA");
-      // SendNodeInfoRequest(client, "DATA");
       SendNodeAddRequest(client);
     } break;
     case ClusterCmdType::kRemove:
@@ -448,7 +446,6 @@ int PRaft::ProcessClusterJoinCmdResponse(PClient* client, const char* start, int
     ERROR("Joined Raft cluster fail, str: {}", reply);
     join_client->SetRes(CmdRes::kErrOther, reply);
     join_client->SendPacket();
-    //    join_client->Clear();
     // If the join fails, clear clusterContext and set it again by using the join command
     cluster_cmd_ctx_.Clear();
   }
@@ -473,7 +470,6 @@ int PRaft::ProcessClusterRemoveCmdResponse(PClient* client, const char* start, i
 
     remove_client->SetRes(CmdRes::kOK);
     remove_client->SendPacket();
-    //    remove_client->Clear();
   } else if (reply.find(NOT_LEADER) != std::string::npos) {
     auto remove_client = cluster_cmd_ctx_.GetClient();
     remove_client->Clear();
@@ -482,7 +478,6 @@ int PRaft::ProcessClusterRemoveCmdResponse(PClient* client, const char* start, i
     ERROR("Removed Raft cluster fail, str: {}", reply);
     remove_client->SetRes(CmdRes::kErrOther, reply);
     remove_client->SendPacket();
-    //    remove_client->Clear();
   }
 
   // If the remove fails, clear clusterContext and set it again by using the join command
@@ -493,7 +488,7 @@ int PRaft::ProcessClusterRemoveCmdResponse(PClient* client, const char* start, i
 
 butil::Status PRaft::AddPeer(const std::string& peer) {
   if (!node_) {
-    ERROR_LOG_AND_STATUS("Node is not initialized");
+    return ERROR_LOG_AND_STATUS("Node is not initialized");
   }
 
   braft::SynchronizedClosure done;
@@ -510,7 +505,7 @@ butil::Status PRaft::AddPeer(const std::string& peer) {
 
 butil::Status PRaft::AddPeer(const std::string& endpoint, int index) {
   if (!node_) {
-    ERROR_LOG_AND_STATUS("Node is not initialized");
+    return ERROR_LOG_AND_STATUS("Node is not initialized");
   }
 
   braft::SynchronizedClosure done;

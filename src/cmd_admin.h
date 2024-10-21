@@ -160,15 +160,12 @@ class InfoCmd : public BaseCmd {
   void InfoServer(std::string& info);
   void InfoStats(std::string& info);
   void InfoCPU(std::string& info);
-  void InfoRaft(PClient* client, std::string& info);
+  void InfoRaft(PClient* client, std::string& message);
   void InfoData(std::string& info);
   void InfoCommandStats(PClient* client, std::string& info);
   std::string FormatCommandStatLine(const CommandStatistics& stats);
   double MethodofTotalTimeCalculation(const uint64_t time_consuming);
   double MethodofCommandStatistics(const uint64_t time_consuming, const uint64_t frequency);
-
- private:
-  PRaft* praft_ = nullptr;
 };
 
 class CmdDebug : public BaseCmdGroup {

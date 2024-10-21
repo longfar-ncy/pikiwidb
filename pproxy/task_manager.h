@@ -12,6 +12,9 @@
 #include <memory>
 #include <queue>
 #include <string>
+#include <type_traits>
+
+#include "pstd/thread_pool.h"
 
 class Task {
  public:
@@ -46,8 +49,8 @@ class TaskManager {
 
   template <class F, class... Args>
   auto Push(F&& function, Args&&... args)  //
-      -> std::future<typename std::result_of<F(Args...)>::type> {
-    using ReturnType = typename std::result_of<F(Args...)>::type;
+      -> std::future<std::invoke_result_t<F, Args...>> {
+    using ReturnType = std::invoke_result_t<F, Args...>;
 
     auto task = std::make_shared<std::packaged_task<ReturnType()>>(  //
         std::bind(std::forward<F>(function), std::forward<Args>(args)...));
@@ -72,7 +75,7 @@ class TaskManager {
   void processTasks();
 
  private:
-  std::shared_ptr<::Threadpool> threadpool_;
+  std::shared_ptr<Threadpool> threadpool_;
   std::queue<Task> tasks_;
   std::mutex mutex_;
   size_t maxWorkers_;
