@@ -11,6 +11,7 @@
  */
 
 #include "cmd_raft.h"
+#include <fmt/core.h>
 
 #include <cstdint>
 #include <optional>
@@ -179,9 +180,10 @@ void RaftNodeCmd::DoCmdRemove(PClient* client) {
 
 void RaftNodeCmd::DoCmdSnapshot(PClient* client) {
   auto s = praft_->DoSnapshot();
-  if (s.ok()) {
-    client->SetRes(CmdRes::kOK);
+  if (!s.ok()) {
+    return client->SetRes(CmdRes::kErrOther, fmt::format("do snapshot error: {}", s.error_cstr()));
   }
+  client->SetRes(CmdRes::kOK);
 }
 
 RaftClusterCmd::RaftClusterCmd(const std::string& name, int16_t arity)

@@ -393,7 +393,6 @@ bool PRaft::InitializeNodeBeforeAdd(PClient* client, PClient* join_client, const
     ERROR("Joined Raft cluster fail, because of invalid raft_group_id");
     join_client->SetRes(CmdRes::kErrOther, "Invalid raft_group_id");
     join_client->SendPacket();
-    //    join_client->Clear();
     // If the join fails, clear clusterContext and set it again by using the join command
     cluster_cmd_ctx_.Clear();
     return false;
